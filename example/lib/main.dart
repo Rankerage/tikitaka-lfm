@@ -65,7 +65,7 @@ Future<void> cancelDailyReminder() async {
 }
 
 /// TikiTaka LFM2.5 예제 앱 — 온디바이스 AI 학습 파트너
-const String kAppVersion = '1.2.0';
+const String kAppVersion = '1.3.0';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -681,9 +681,25 @@ class _MistakeReviewPageState extends State<MistakeReviewPage> {
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
-                            const Text('A',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey)),
+                            Row(
+                              children: [
+                                const Text('A',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey)),
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(Icons.volume_up, size: 20),
+                                  tooltip: '답 듣기',
+                                  onPressed: () => speak(
+                                    current.answer,
+                                    language:
+                                        widget.engine.subject == '영어'
+                                            ? 'en-US'
+                                            : 'ko-KR',
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 8),
                             Text(current.answer,
                                 style: const TextStyle(

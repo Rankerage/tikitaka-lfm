@@ -2,6 +2,23 @@
 
 이 프로젝트의 변경 이력. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 기반.
 
+## [1.3.0] - 2026-08-14
+
+### Added
+- **일별 활동 추적** — `weeklyActivity()` 최근 7일 질문 수, 통계 화면 막대 그래프
+- **과목 데이터 삭제** — `deleteSubject()` 기록·오답노트·통계 전체 제거
+- **이번 주 활동 요약** — `exportHistory()`에 주간 질문 수·활동 일수
+- **음성(TTS) 학습** — 채팅 '듣기' 버튼·복습 카드 발음(질문·답), 과목별 언어
+- **에뮬레이터 E2E** — `integration_test/app_e2e_test.dart` 설정→연결→대화 검증
+
+### Fixed
+- 좁은 화면 액션 칩 가로 오버플로 (가로 스크롤)
+- 설정 시트 controller use-after-dispose (StatefulWidget 리팩터링)
+- Windows 빌드: flutter_tts에 필요한 nuget.exe 자동 안내
+
+### Changed
+- 버전 1.3.0 (versionCode 4)
+
 ## [1.2.0] - 2026-08-14
 
 ### Added
