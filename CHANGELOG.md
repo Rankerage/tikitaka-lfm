@@ -22,6 +22,7 @@
 - **App Bundle** — `tool/build_android.sh bundle` → Play 스토어용 `app-release.aab` (릴리스 키 서명)
 - **요약 UI** — 통계 화면에서 `summarize()` 호출, 결과 대화상자 표시 (통합 테스트에서 실제 모델 검증)
 - **맞춤 학습 계획** — `learningPlan(minutes)` 최근 대화·통계 기반 계획 생성, 채팅 '계획' 버튼 (실제 모델 통합 검증)
+- **앱 브랜딩** — 티키타카 런처 아이콘(패싱볼 모티프)·적응형 아이콘·네이티브 스플래시 (flutter_launcher_icons / flutter_native_splash)
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)
