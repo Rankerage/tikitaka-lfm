@@ -1,11 +1,11 @@
 {
-    "name": "tikitaka_example",
-    "short_name": "tikitaka_example",
+    "name": "TikiTaka",
+    "short_name": "TikiTaka",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "TikiTaka LFM2.5 — 온디바이스 AI 학습 파트너",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

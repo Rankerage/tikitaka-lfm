@@ -11,7 +11,14 @@ ollama pull lfm2.5-thinking:1.2b
 cd example
 flutter pub get
 flutter run          # 연결된 기기/에뮬레이터 선택
+
+# 웹 데모 빌드 + 로컬 서빙
+flutter build web --release
+cd build/web && python3 -m http.server 8080   # http://localhost:8080
 ```
+
+> **웹에서 Ollama 호출**: 브라우저 CORS 때문에 Ollama 서버가
+> `OLLAMA_ORIGINS=http://localhost:8080 ollama serve` 형태로 origin을 허용해야 한다.
 
 ## Ollama 연결 주소
 | 실행 대상 | 호스트 | 비고 |
