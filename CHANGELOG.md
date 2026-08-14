@@ -10,6 +10,7 @@
 - **이번 주 활동 요약** — `exportHistory()`에 주간 질문 수·활동 일수
 - **음성(TTS) 학습** — 채팅 '듣기' 버튼·복습 카드 발음(질문·답), 과목별 언어
 - **에뮬레이터 E2E** — `integration_test/app_e2e_test.dart` 설정→연결→대화 검증
+- **스토어 리스팅 준비** — `flutter drive`로 실기기 화면 5종 스크린샷, `docs/store_listing.md` (한/영 설명)
 
 ### Fixed
 - 좁은 화면 액션 칩 가로 오버플로 (가로 스크롤)
