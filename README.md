@@ -142,6 +142,17 @@ tool/build_windows.sh release
 # → build/windows/*.exe
 ```
 
+### Android 에뮬레이터에서 실행 검증
+```bash
+# 1회: 에뮬레이터 패키지 + 시스템 이미지 설치, AVD 생성
+#   sdkmanager 'emulator' 'system-images;android-36;google_apis;x86_64'
+#   avdmanager create avd -n tikitaka -k system-images;android-36;google_apis;x86_64 -d pixel_5
+
+# 이후: 부팅 → 릴리스 APK 설치 → 실행 → 크래시 검증
+tool/build_android.sh release   # 최신 APK 빌드 (필요시)
+tool/emulator_run.sh            # ✅ PID 확인 + FATAL 없음
+```
+
 ## ⚠️ Android 실기기 네트워크 설정 (필수)
 
 이 엔진은 로컬 Ollama 서버에 **HTTP(비보안)** 로 연결한다. Android 9(API 28) 이상에서는 기본적으로 cleartext HTTP 트래픽이 **차단**되므로, **호스트 앱**의 `AndroidManifest.xml`에 아래 설정 중 하나가 필요하다.
