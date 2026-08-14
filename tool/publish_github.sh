@@ -47,10 +47,14 @@ fi
 if [[ "$MODE" == "--release" ]]; then
   echo "== 5/5 GitHub Release 첨부 =="
   ./tool/build_android.sh release >/dev/null 2>&1
-  gh release create v1.3.0 \
+  ./tool/build_android.sh bundle >/dev/null 2>&1
+  # 버전을 example/pubspec.yaml에서 동적으로 읽는다 (예: 1.3.0)
+  VERSION="$(grep -m1 '^version:' example/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)"
+  gh release create "v$VERSION" \
     build/apk/app-release.apk build/aab/app-release.aab \
-    --repo "$REPO" --title "TikiTaka v1.3.0" --notes "온디바이스 AI 학습 파트너 릴리스" || true
-  echo "   ✅ Release 첨부 완료"
+    --repo "$REPO" --title "TikiTaka v$VERSION" \
+    --notes "TikiTaka v$VERSION — 온디바이스 AI 학습 파트너" || true
+  echo "   ✅ Release 첨부 완료 (v$VERSION)"
 fi
 
 echo "== 완료 =="
