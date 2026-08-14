@@ -100,7 +100,7 @@ class TikiTakaLfm {
   int _quizIndex = 0;
   Timer? _proactiveTimer;
   Timer? _saveTimer;
-  bool _dirty = false;
+  _Snapshot? _pending; // 디바운스 저장 대기 중인 스냅샷 (주제·데이터 고정)
 
   int _totalQuestions = 0;
   int _streakDays = 0;
@@ -140,8 +140,27 @@ class TikiTakaLfm {
     }
   }
 
-  /// 학습 주제 설정
-  void setSubject(String subject) => _studySubject = subject;
+  /// 학습 주제 설정 — 주제별로 대화 기록·통계가 분리된다.
+  ///
+  /// 주제를 바꾸면 현재 주제의 데이터를 메모리에서 내리고,
+  /// 대기 중인 저장이 있으면 그 주제 키로 먼저 기록한다.
+  /// 이후 [loadHistory]를 호출해 새 주제의 기록을 불러온다.
+  void setSubject(String subject) {
+    if (subject == _studySubject) return;
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    final pending = _pending;
+    _pending = null;
+    if (pending != null) {
+      unawaited(_writeSnapshot(pending)); // 이전 주제의 마지막 상태 저장 보장
+    }
+    _studySubject = subject;
+    _history.clear();
+    _totalQuestions = 0;
+    _streakDays = 0;
+    _bestStreak = 0;
+    _lastActiveDate = null;
+  }
 
   /// 과목 + 메시지 조합
   String get _systemPrompt => '''
@@ -381,8 +400,10 @@ class TikiTakaLfm {
     stopProactiveLearning();
     _saveTimer?.cancel();
     _saveTimer = null;
-    if (_dirty) {
-      unawaited(_writeHistory()); // 마지막 기록 저장 시도 (비동기)
+    final pending = _pending;
+    _pending = null;
+    if (pending != null) {
+      unawaited(_writeSnapshot(pending)); // 마지막 기록 저장 시도 (비동기)
     }
     if (_ownsClient) {
       _client.close();
@@ -390,12 +411,19 @@ class TikiTakaLfm {
   }
 
   /// 대화 기록 저장 예약 — [saveDebounce] 동안 추가 호출이 있으면 연기된다.
+  ///
+  /// 예약 시점의 (주제·데이터)를 스냅샷으로 고정하므로, 저장이 실행되기 전에
+  /// 주제가 바뀌어도 잘못된 키로 쓰는 일이 없다.
   void _scheduleSave() {
-    _dirty = true;
+    _pending = _currentSnapshot();
     _saveTimer?.cancel();
     _saveTimer = Timer(saveDebounce, () {
       _saveTimer = null;
-      unawaited(_writeHistory());
+      final snap = _pending;
+      _pending = null;
+      if (snap != null) {
+        unawaited(_writeSnapshot(snap));
+      }
     });
   }
 
@@ -403,27 +431,47 @@ class TikiTakaLfm {
   Future<void> flush() async {
     _saveTimer?.cancel();
     _saveTimer = null;
-    await _writeHistory();
+    final snap = _pending ?? _currentSnapshot();
+    _pending = null;
+    await _writeSnapshot(snap);
   }
 
-  /// 대화 기록 쓰기 (실제 SharedPreferences 저장) — 통계 키도 함께 저장
-  Future<void> _writeHistory() async {
-    if (!_dirty) return;
-    _dirty = false;
+  _Snapshot _currentSnapshot() => _Snapshot(
+        subject: _studySubject,
+        history: List<TkMessage>.of(_history),
+        totalQuestions: _totalQuestions,
+        streakDays: _streakDays,
+        bestStreak: _bestStreak,
+        lastActive: _lastActiveDate,
+      );
+
+  /// 한 과목의 기록·통계를 주제별 키로 저장한다 (실제 SharedPreferences 쓰기)
+  Future<void> _writeSnapshot(_Snapshot snap) async {
     final prefs = await SharedPreferences.getInstance();
-    final json = jsonEncode(_history.map((m) => m.toJson()).toList());
-    await prefs.setString('tikitaka_history', json);
-    await prefs.setInt('tikitaka_total_questions', _totalQuestions);
-    await prefs.setInt('tikitaka_streak_days', _streakDays);
-    await prefs.setInt('tikitaka_best_streak', _bestStreak);
-    await prefs.setString(
-        'tikitaka_last_active', _lastActiveDate?.toIso8601String() ?? '');
+    final suffix = snap.subject.isEmpty ? '' : '_${snap.subject}';
+    final json =
+        jsonEncode(snap.history.map((m) => m.toJson()).toList());
+    await prefs.setString('tikitaka_history$suffix', json);
+    await prefs.setInt('tikitaka_total_questions$suffix', snap.totalQuestions);
+    await prefs.setInt('tikitaka_streak_days$suffix', snap.streakDays);
+    await prefs.setInt('tikitaka_best_streak$suffix', snap.bestStreak);
+    await prefs.setString('tikitaka_last_active$suffix',
+        snap.lastActive?.toIso8601String() ?? '');
   }
 
-  /// 대화 기록 불러오기 — 손상된 데이터는 무시하고 초기화한다
+  /// 대화 기록 불러오기 (현재 주제 기준) — 손상된 데이터는 무시하고 초기화한다
   Future<void> loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('tikitaka_history');
+    // 통계는 히스토리와 독립적으로 복원
+    _totalQuestions = prefs.getInt('tikitaka_total_questions$_suffix') ?? 0;
+    _streakDays = prefs.getInt('tikitaka_streak_days$_suffix') ?? 0;
+    _bestStreak = prefs.getInt('tikitaka_best_streak$_suffix') ?? 0;
+    final last = prefs.getString('tikitaka_last_active$_suffix');
+    _lastActiveDate = last == null || last.isEmpty
+        ? null
+        : DateTime.tryParse(last);
+
+    final raw = prefs.getString('tikitaka_history$_suffix');
     if (raw == null) return;
     try {
       final list = jsonDecode(raw);
@@ -438,42 +486,56 @@ class TikiTakaLfm {
       if (_history.length > _maxStoredMessages) {
         _history.removeRange(0, _history.length - _maxStoredMessages);
       }
-      // 통계 복원
-      _totalQuestions = prefs.getInt('tikitaka_total_questions') ?? 0;
-      _streakDays = prefs.getInt('tikitaka_streak_days') ?? 0;
-      _bestStreak = prefs.getInt('tikitaka_best_streak') ?? 0;
-      final last = prefs.getString('tikitaka_last_active');
-      _lastActiveDate = last == null || last.isEmpty
-          ? null
-          : DateTime.tryParse(last);
     } catch (_) {
       // 손상된 기록은 버리고 키를 제거 (다음 로드에서도 실패하지 않도록)
       _history.clear();
-      await prefs.remove('tikitaka_history');
+      await prefs.remove('tikitaka_history$_suffix');
     }
   }
 
-  /// 초기화 (학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다.
+  /// 초기화 (현재 주제 학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다.
   ///
   /// 대화 기록·질문 수·현재 streak은 초기화되지만 역대 최고 streak은 유지된다.
   Future<void> reset() async {
     _saveTimer?.cancel();
     _saveTimer = null;
-    _dirty = false;
+    _pending = null;
     _history.clear();
     _quizIndex = 0;
     _totalQuestions = 0;
     _streakDays = 0;
     _lastActiveDate = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('tikitaka_history');
-    await prefs.remove('tikitaka_total_questions');
-    await prefs.remove('tikitaka_streak_days');
-    await prefs.remove('tikitaka_last_active');
+    await prefs.remove('tikitaka_history$_suffix');
+    await prefs.remove('tikitaka_total_questions$_suffix');
+    await prefs.remove('tikitaka_streak_days$_suffix');
+    await prefs.remove('tikitaka_last_active$_suffix');
     if (_bestStreak > 0) {
-      await prefs.setInt('tikitaka_best_streak', _bestStreak);
+      await prefs.setInt('tikitaka_best_streak$_suffix', _bestStreak);
     }
   }
 
+  /// 현재 주제의 저장 키 접미사 (기본 주제는 빈 문자열 → 기존 키 호환)
+  String get _suffix => _studySubject.isEmpty ? '' : '_$_studySubject';
+
   List<TkMessage> get history => List.unmodifiable(_history);
+}
+
+/// 특정 시점의 한 과목 기록·통계 스냅샷 — 디바운스 저장의 원자적 단위
+class _Snapshot {
+  final String subject;
+  final List<TkMessage> history;
+  final int totalQuestions;
+  final int streakDays;
+  final int bestStreak;
+  final DateTime? lastActive;
+
+  const _Snapshot({
+    required this.subject,
+    required this.history,
+    required this.totalQuestions,
+    required this.streakDays,
+    required this.bestStreak,
+    required this.lastActive,
+  });
 }

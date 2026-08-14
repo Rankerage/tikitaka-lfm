@@ -560,6 +560,77 @@ void main() {
     });
   });
 
+  group('과목별 분리 (multi-subject)', () {
+    test('과목별 히스토리·통계가 분리되어 저장된다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+
+      engine.setSubject('수학');
+      await engine.ask('수학 질문');
+      await engine.flush();
+
+      engine.setSubject('영어');
+      await engine.ask('영어 질문');
+      await engine.flush();
+
+      // 새 엔진으로 과목별 복원 확인
+      final math = TikiTakaLfm(client: client);
+      math.setSubject('수학');
+      await math.loadHistory();
+      expect(math.history.first.content, '수학 질문');
+      expect(math.history, hasLength(2));
+      expect(math.stats.totalQuestions, 1);
+
+      final eng = TikiTakaLfm(client: client);
+      eng.setSubject('영어');
+      await eng.loadHistory();
+      expect(eng.history.first.content, '영어 질문');
+      expect(eng.history, hasLength(2));
+      expect(eng.stats.totalQuestions, 1);
+
+      engine.dispose();
+      math.dispose();
+      eng.dispose();
+    });
+
+    test('주제 전환 시 대기 중인 저장이 유실되지 않는다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(
+          client: client, saveDebounce: const Duration(minutes: 1));
+
+      engine.setSubject('수학');
+      await engine.ask('유실되면 안 되는 질문');
+      // 디바운스 저장이 실행되기 전에 주제 전환 → 대기 스냅샷이 수학 키로 쓰여야 함
+      engine.setSubject('영어');
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      final restored = TikiTakaLfm(client: client);
+      restored.setSubject('수학');
+      await restored.loadHistory();
+      expect(restored.history.first.content, '유실되면 안 되는 질문');
+      engine.dispose();
+      restored.dispose();
+    });
+
+    test('과목 전환 후 새 과목 통계는 0부터 시작', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('1');
+      await engine.flush();
+      expect(engine.stats.totalQuestions, 1);
+
+      engine.setSubject('영어');
+      expect(engine.stats.totalQuestions, 0);
+      expect(engine.stats.streakDays, 0);
+
+      engine.setSubject('수학');
+      await engine.loadHistory();
+      expect(engine.stats.totalQuestions, 1); // 저장된 수학 통계 복원
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));
