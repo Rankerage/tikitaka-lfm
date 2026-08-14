@@ -56,6 +56,28 @@ class TkMessage {
       );
 }
 
+/// 학습 활동 통계
+class TkStats {
+  /// 총 질문(성공한 대화) 수
+  final int totalQuestions;
+
+  /// 현재 연속 학습 일수
+  final int streakDays;
+
+  /// 역대 최고 연속 학습 일수
+  final int bestStreak;
+
+  /// 마지막 활동일 (자정 기준, 없으면 null)
+  final DateTime? lastActive;
+
+  const TkStats({
+    required this.totalQuestions,
+    required this.streakDays,
+    required this.bestStreak,
+    this.lastActive,
+  });
+}
+
 /// 능동적 학습 파트너 엔진
 class TikiTakaLfm {
   final LfmConfig config;
@@ -63,6 +85,7 @@ class TikiTakaLfm {
 
   final http.Client _client;
   final bool _ownsClient;
+  final DateTime Function() _now;
 
   /// 요청 시 모델에 전달할 최대 대화 메시지 수 (컨텍스트 오버플로 방지)
   static const int _maxContextMessages = 20;
@@ -79,14 +102,22 @@ class TikiTakaLfm {
   Timer? _saveTimer;
   bool _dirty = false;
 
+  int _totalQuestions = 0;
+  int _streakDays = 0;
+  int _bestStreak = 0;
+  DateTime? _lastActiveDate;
+
   /// [client]를 직접 주입하면 테스트에서 HTTP를 모킹할 수 있다.
+  /// [clock]은 날짜 기반 통계(연속 학습) 테스트를 위해 주입한다.
   TikiTakaLfm({
     LfmConfig? config,
     http.Client? client,
+    DateTime Function()? clock,
     this.saveDebounce = const Duration(milliseconds: 300),
   })  : config = config ?? const LfmConfig(),
         _client = client ?? http.Client(),
-        _ownsClient = client == null;
+        _ownsClient = client == null,
+        _now = clock ?? DateTime.now;
 
   /// Ollama 연결 확인 — 설정된 모델(config.model) 패밀리가 로드돼 있는지 검사
   Future<bool> isAvailable() async {
@@ -143,6 +174,7 @@ class TikiTakaLfm {
       final reply = buffer.toString();
       _requireNonEmpty(reply);
       _append(TkMessage(role: 'assistant', content: reply));
+      _recordActivity();
       _scheduleSave();
       committed = true;
     } finally {
@@ -167,6 +199,38 @@ class TikiTakaLfm {
       _history.removeRange(0, _history.length - _maxStoredMessages);
     }
   }
+
+  /// 성공한 대화 1회를 학습 활동으로 기록한다 (연속 학습 streak 갱신)
+  void _recordActivity() {
+    final today = _dateOnly(_now());
+    final last = _lastActiveDate;
+    _totalQuestions++;
+    if (last == null) {
+      _streakDays = 1;
+    } else {
+      final diff = today.difference(last).inDays;
+      if (diff == 1) {
+        _streakDays++; // 어제 활동 → 연속 유지
+      } else if (diff > 1) {
+        _streakDays = 1; // 하루 이상 건너뜀 → streak 리셋
+      }
+      // diff == 0: 같은 날 재활동 → 유지
+    }
+    if (_streakDays > _bestStreak) {
+      _bestStreak = _streakDays;
+    }
+    _lastActiveDate = today;
+  }
+
+  static DateTime _dateOnly(DateTime t) => DateTime(t.year, t.month, t.day);
+
+  /// 학습 활동 통계 (연속 학습 일수 등)
+  TkStats get stats => TkStats(
+        totalQuestions: _totalQuestions,
+        streakDays: _streakDays,
+        bestStreak: _bestStreak,
+        lastActive: _lastActiveDate,
+      );
 
   /// 빈 답변 방어 — 형식 오류로 취급한다.
   void _requireNonEmpty(String reply) {
@@ -331,13 +395,18 @@ class TikiTakaLfm {
     await _writeHistory();
   }
 
-  /// 대화 기록 쓰기 (실제 SharedPreferences 저장)
+  /// 대화 기록 쓰기 (실제 SharedPreferences 저장) — 통계 키도 함께 저장
   Future<void> _writeHistory() async {
     if (!_dirty) return;
     _dirty = false;
     final prefs = await SharedPreferences.getInstance();
     final json = jsonEncode(_history.map((m) => m.toJson()).toList());
     await prefs.setString('tikitaka_history', json);
+    await prefs.setInt('tikitaka_total_questions', _totalQuestions);
+    await prefs.setInt('tikitaka_streak_days', _streakDays);
+    await prefs.setInt('tikitaka_best_streak', _bestStreak);
+    await prefs.setString(
+        'tikitaka_last_active', _lastActiveDate?.toIso8601String() ?? '');
   }
 
   /// 대화 기록 불러오기 — 손상된 데이터는 무시하고 초기화한다
@@ -358,6 +427,14 @@ class TikiTakaLfm {
       if (_history.length > _maxStoredMessages) {
         _history.removeRange(0, _history.length - _maxStoredMessages);
       }
+      // 통계 복원
+      _totalQuestions = prefs.getInt('tikitaka_total_questions') ?? 0;
+      _streakDays = prefs.getInt('tikitaka_streak_days') ?? 0;
+      _bestStreak = prefs.getInt('tikitaka_best_streak') ?? 0;
+      final last = prefs.getString('tikitaka_last_active');
+      _lastActiveDate = last == null || last.isEmpty
+          ? null
+          : DateTime.tryParse(last);
     } catch (_) {
       // 손상된 기록은 버리고 키를 제거 (다음 로드에서도 실패하지 않도록)
       _history.clear();
@@ -365,15 +442,26 @@ class TikiTakaLfm {
     }
   }
 
-  /// 초기화 (학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다
+  /// 초기화 (학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다.
+  ///
+  /// 대화 기록·질문 수·현재 streak은 초기화되지만 역대 최고 streak은 유지된다.
   Future<void> reset() async {
     _saveTimer?.cancel();
     _saveTimer = null;
     _dirty = false;
     _history.clear();
     _quizIndex = 0;
+    _totalQuestions = 0;
+    _streakDays = 0;
+    _lastActiveDate = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tikitaka_history');
+    await prefs.remove('tikitaka_total_questions');
+    await prefs.remove('tikitaka_streak_days');
+    await prefs.remove('tikitaka_last_active');
+    if (_bestStreak > 0) {
+      await prefs.setInt('tikitaka_best_streak', _bestStreak);
+    }
   }
 
   List<TkMessage> get history => List.unmodifiable(_history);

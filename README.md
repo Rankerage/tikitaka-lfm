@@ -28,6 +28,9 @@ await for (final delta in engine.askStream('이차방정식 어려워요')) {
 // 답변 평가 — 히스토리에 남기지 않는 1회성 평가
 final feedback = await engine.gradeDirect('x = 2입니다');
 
+// 학습 통계 (연속 학습 streak)
+final stats = engine.stats; // totalQuestions, streakDays, bestStreak, lastActive
+
 // 앱 종료 전 대기 중인 기록 저장 확정 (선택)
 await engine.flush();
 ```
@@ -38,12 +41,15 @@ await engine.flush();
 - `startProactiveLearning(interval, onTick)` — 정기 학습 알림 (onTick으로 push 연동)
 - `gradeDirect(answer)` — 평가 요청을 대화 기록에 남기지 않는 1회성 평가
 - `flush()` — 디바운스된 기록 저장을 즉시 확정
+- `stats` — 학습 통계 (총 질문 수, 연속 학습 streak, 최고 streak, 마지막 활동일)
 - 오프라인 완전 동작 (인터넷 불필요)
 
 ## 내부 동작
 - **컨텍스트 캡**: 모델 요청 시 최근 20개 메시지만 전송
 - **기록 상한**: 메모리·저장소 모두 최근 100개 유지 (오래된 기록 자동 제거)
 - **저장 디바운스**: 답변마다 쓰지 않고 300ms(기본) 동안 연기 — 연속 대화 중 중복 쓰기 방지
+- **연속 학습 streak**: 성공한 대화가 하루 단위로 이어지면 증가, 하루 이상 건너뛰면 리셋
+  (최고 기록은 리셋해도 유지)
 
 ## 모델
 - **LFM2.5-1.2B** (Liquid AI) — 731MB 초경량

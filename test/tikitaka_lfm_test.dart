@@ -415,6 +415,110 @@ void main() {
     });
   });
 
+  group('학습 통계 (streak)', () {
+    test('첫 활동: streak 1, 질문 수 1', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('시작');
+      final s = engine.stats;
+      expect(s.totalQuestions, 1);
+      expect(s.streakDays, 1);
+      expect(s.bestStreak, 1);
+      expect(s.lastActive, DateTime(2026, 8, 14));
+      engine.dispose();
+    });
+
+    test('같은 날 여러 번 활동해도 streak 유지', () async {
+      var now = DateTime(2026, 8, 14, 9, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1');
+      now = DateTime(2026, 8, 14, 21, 30);
+      await engine.ask('2');
+      await engine.ask('3');
+      expect(engine.stats.totalQuestions, 3);
+      expect(engine.stats.streakDays, 1);
+      expect(engine.stats.bestStreak, 1);
+      engine.dispose();
+    });
+
+    test('다음 날 활동하면 streak 증가', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1일차');
+      now = DateTime(2026, 8, 15, 8, 0);
+      await engine.ask('2일차');
+      now = DateTime(2026, 8, 16, 22, 0);
+      await engine.ask('3일차');
+      expect(engine.stats.streakDays, 3);
+      expect(engine.stats.bestStreak, 3);
+      engine.dispose();
+    });
+
+    test('하루 이상 건너뛰면 streak 리셋 (best는 유지)', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1일차');
+      now = DateTime(2026, 8, 15, 10, 0);
+      await engine.ask('2일차');
+      expect(engine.stats.streakDays, 2);
+      now = DateTime(2026, 8, 18, 10, 0); // 3일 건너뜀
+      await engine.ask('새 시작');
+      expect(engine.stats.streakDays, 1);
+      expect(engine.stats.bestStreak, 2);
+      engine.dispose();
+    });
+
+    test('통계 영속화: flush 후 새 엔진에서 복원', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client, clock: () => now);
+      await engine.ask('1');
+      now = DateTime(2026, 8, 15, 10, 0);
+      await engine.ask('2');
+      await engine.flush();
+
+      final restored = TikiTakaLfm(client: client);
+      await restored.loadHistory();
+      expect(restored.stats.totalQuestions, 2);
+      expect(restored.stats.streakDays, 2);
+      expect(restored.stats.bestStreak, 2);
+      expect(restored.stats.lastActive, DateTime(2026, 8, 15));
+      engine.dispose();
+      restored.dispose();
+    });
+
+    test('reset: 질문 수·streak 초기화, best streak은 유지', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1');
+      now = DateTime(2026, 8, 15, 10, 0);
+      await engine.ask('2');
+      expect(engine.stats.bestStreak, 2);
+
+      await engine.reset();
+      expect(engine.stats.totalQuestions, 0);
+      expect(engine.stats.streakDays, 0);
+      expect(engine.stats.lastActive, isNull);
+      expect(engine.stats.bestStreak, 2); // 개인 최고 기록은 유지
+      engine.dispose();
+    });
+
+    test('gradeDirect는 활동으로 기록되지 않는다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('좋아요!')), clock: () => now);
+      await engine.gradeDirect('충분히 긴 답변입니다');
+      expect(engine.stats.totalQuestions, 0);
+      expect(engine.stats.streakDays, 0);
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));
