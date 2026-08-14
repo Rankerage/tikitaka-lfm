@@ -4,9 +4,22 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tikitaka_lfm/tikitaka_chat.dart';
 import 'package:tikitaka_lfm/tikitaka_lfm.dart';
+
+/// 텍스트 음성 출력 (TTS) — 실패(플랫폼 미지원 등)는 조용히 무시
+final FlutterTts _tts = FlutterTts();
+
+Future<void> speak(String text, {String language = 'ko-KR'}) async {
+  if (kIsWeb) return; // 웹은 별도 브라우저 권한 흐름 필요 — 생략
+  try {
+    await _tts.stop();
+    await _tts.setLanguage(language);
+    await _tts.speak(text);
+  } catch (_) {}
+}
 
 /// 정기 학습 알림 (flutter_local_notifications 래퍼)
 final FlutterLocalNotificationsPlugin _notifications =
@@ -449,6 +462,10 @@ class _HomePageState extends State<HomePage> {
               engine: _engine!,
               subject: _subject,
               onActivity: _refreshStats,
+              onSpeak: (text) => speak(
+                text,
+                language: _subject == '영어' ? 'en-US' : 'ko-KR',
+              ),
             ),
           ),
         ],
@@ -579,9 +596,24 @@ class _MistakeReviewPageState extends State<MistakeReviewPage> {
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          const Text('Q',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.teal)),
+                          Row(
+                            children: [
+                              const Text('Q',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.teal)),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.volume_up, size: 20),
+                                tooltip: '듣기',
+                                onPressed: () => speak(
+                                  current.question,
+                                  language: widget.engine.subject == '영어'
+                                      ? 'en-US'
+                                      : 'ko-KR',
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           Text(current.question,
                               style: const TextStyle(fontSize: 18, height: 1.4)),

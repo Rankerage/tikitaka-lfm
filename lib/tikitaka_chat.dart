@@ -13,12 +13,17 @@ class TikiTakaChat extends StatefulWidget {
   /// '문제/평가' 빠른 액션 버튼 표시 여부
   final bool showActions;
 
+  /// 텍스트를 소리내어 읽는 콜백 (TTS). 제공하면 '듣기' 버튼이 표시된다.
+  /// 라이브러리는 플러그인에 의존하지 않고 호스트가 구현을 주입한다.
+  final Future<void> Function(String text)? onSpeak;
+
   const TikiTakaChat({
     super.key,
     required this.engine,
     this.subject = '수학',
     this.onActivity,
     this.showActions = true,
+    this.onSpeak,
   });
 
   @override
@@ -134,6 +139,16 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
 
   /// 사용자 메시지가 하나라도 있는지 (평가 버튼 활성 조건)
   bool get _hasUserMessage => _messages.any((m) => m.role == 'user');
+
+  /// 마지막 비어있지 않은 조교(assistant) 메시지 내용 (듣기 버튼 대상)
+  String get _lastAssistantContent {
+    for (final m in _messages.reversed) {
+      if (m.role == 'assistant' && m.content.isNotEmpty) {
+        return m.content;
+      }
+    }
+    return '';
+  }
 
   /// 오늘의 문제 — 퀴즈를 히스토리에 기록하고 화면에 표시 (모델 호출 없음)
   void _quiz() {
@@ -363,6 +378,16 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
                   label: const Text('오답'),
                   onPressed: (_busy || !_hasUserMessage) ? null : _saveMistake,
                 ),
+                if (widget.onSpeak != null) ...[
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    avatar: const Icon(Icons.volume_up, size: 16),
+                    label: const Text('듣기'),
+                    onPressed: (_busy || _lastAssistantContent.isEmpty)
+                        ? null
+                        : () => widget.onSpeak!(_lastAssistantContent),
+                  ),
+                ],
               ],
             ),
           ),

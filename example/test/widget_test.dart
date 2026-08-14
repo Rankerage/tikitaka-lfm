@@ -263,6 +263,22 @@ void main() {
     expect(find.text('학습 통계'), findsOneWidget);
   });
 
+  testWidgets('듣기 버튼으로 TTS를 호출해도 크래시 없다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    // 초기 인사말(assistant)이 있어 듣기 버튼이 활성화된다
+    final chip = tester.widget<ActionChip>(
+      find.widgetWithText(ActionChip, '듣기'),
+    );
+    expect(chip.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(ActionChip, '듣기'));
+    await tester.pumpAndSettle();
+    // 플랫폼 미지원(테스트) → 내부에서 조용히 무시
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
     await tester.pumpWidget(const TikiTakaApp());
     await tester.pump();
