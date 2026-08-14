@@ -25,6 +25,7 @@
 - **앱 브랜딩** — 티키타카 런처 아이콘(패싱볼 모티프)·적응형 아이콘·네이티브 스플래시 (flutter_launcher_icons / flutter_native_splash)
 - **앱 정보 다이얼로그** — 버전·엔진·모델 정보 표시
 - **릴리스 정리** — 버전 1.1.0 (versionCode 2), Android/Web/Windows 전체 재검증
+- **오답노트** — `addMistake`/`removeMistake`/`clearMistakes` (과목별 저장), 채팅 '오답' 버튼, 통계 화면 목록·내보내기 포함
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)

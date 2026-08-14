@@ -78,6 +78,35 @@ class TkStats {
   });
 }
 
+/// 오답 노트 항목 — 틀린 문제와 답을 기록해 복습에 활용한다
+class TkMistake {
+  final String question;
+  final String answer;
+  final String? note;
+  final DateTime timestamp;
+
+  TkMistake({
+    required this.question,
+    required this.answer,
+    this.note,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'q': question,
+        'a': answer,
+        'n': note,
+        'ts': timestamp.toIso8601String(),
+      };
+
+  factory TkMistake.fromJson(Map<String, dynamic> json) => TkMistake(
+        question: json['q'] as String,
+        answer: json['a'] as String,
+        note: json['n'] as String?,
+        timestamp: DateTime.parse(json['ts'] as String),
+      );
+}
+
 /// 능동적 학습 파트너 엔진
 class TikiTakaLfm {
   final LfmConfig config;
@@ -101,6 +130,7 @@ class TikiTakaLfm {
   Timer? _proactiveTimer;
   Timer? _saveTimer;
   _Snapshot? _pending; // 디바운스 저장 대기 중인 스냅샷 (주제·데이터 고정)
+  final List<TkMistake> _mistakes = [];
 
   int _totalQuestions = 0;
   int _streakDays = 0;
@@ -156,6 +186,7 @@ class TikiTakaLfm {
     }
     _studySubject = subject;
     _history.clear();
+    _mistakes.clear();
     _totalQuestions = 0;
     _streakDays = 0;
     _bestStreak = 0;
@@ -296,7 +327,7 @@ class TikiTakaLfm {
       buf.writeln('> 마지막 활동: ${_formatDate(s.lastActive!)}');
     }
     buf.writeln();
-    if (_history.isEmpty) {
+    if (_history.isEmpty && _mistakes.isEmpty) {
       buf.writeln('_아직 대화 기록이 없습니다._');
       return buf.toString();
     }
@@ -313,6 +344,21 @@ class TikiTakaLfm {
       buf
         ..writeln('$prefix ${m.content}')
         ..writeln();
+    }
+    if (_mistakes.isNotEmpty) {
+      buf
+        ..writeln('## 오답 노트')
+        ..writeln();
+      for (var i = 0; i < _mistakes.length; i++) {
+        final m = _mistakes[i];
+        buf
+          ..writeln('${i + 1}. **Q:** ${m.question}')
+          ..writeln('   **A:** ${m.answer}');
+        if (m.note != null && m.note!.isNotEmpty) {
+          buf.writeln('   📝 ${m.note}');
+        }
+        buf.writeln();
+      }
     }
     return buf.toString();
   }
@@ -489,6 +535,29 @@ class TikiTakaLfm {
     return message;
   }
 
+  /// 오답노트에 항목을 추가한다 (현재 주제 기준, 로컬 저장).
+  void addMistake(String question, String answer, {String? note}) {
+    _mistakes.add(TkMistake(question: question, answer: answer, note: note));
+    _scheduleSave();
+  }
+
+  /// 오답노트 항목 목록 (읽기 전용)
+  List<TkMistake> get mistakes => List.unmodifiable(_mistakes);
+
+  /// 인덱스로 오답노트 항목 삭제
+  void removeMistake(int index) {
+    if (index < 0 || index >= _mistakes.length) return;
+    _mistakes.removeAt(index);
+    _scheduleSave();
+  }
+
+  /// 오답노트 비우기
+  void clearMistakes() {
+    if (_mistakes.isEmpty) return;
+    _mistakes.clear();
+    _scheduleSave();
+  }
+
   /// 정답 평가 — '평가해줘' 요청이 대화 기록에 쌓인다 (학습 기록 보존용)
   ///
   /// 기록에 남기지 않고 1회성으로 평가하려면 [gradeDirect]를 사용한다.
@@ -573,19 +642,23 @@ class TikiTakaLfm {
   _Snapshot _currentSnapshot() => _Snapshot(
         subject: _studySubject,
         history: List<TkMessage>.of(_history),
+        mistakes: List<TkMistake>.of(_mistakes),
         totalQuestions: _totalQuestions,
         streakDays: _streakDays,
         bestStreak: _bestStreak,
         lastActive: _lastActiveDate,
       );
 
-  /// 한 과목의 기록·통계를 주제별 키로 저장한다 (실제 SharedPreferences 쓰기)
+  /// 한 과목의 기록·통계·오답노트를 주제별 키로 저장한다 (SharedPreferences 쓰기)
   Future<void> _writeSnapshot(_Snapshot snap) async {
     final prefs = await SharedPreferences.getInstance();
     final suffix = snap.subject.isEmpty ? '' : '_${snap.subject}';
     final json =
         jsonEncode(snap.history.map((m) => m.toJson()).toList());
+    final mistakesJson =
+        jsonEncode(snap.mistakes.map((m) => m.toJson()).toList());
     await prefs.setString('tikitaka_history$suffix', json);
+    await prefs.setString('tikitaka_mistakes$suffix', mistakesJson);
     await prefs.setInt('tikitaka_total_questions$suffix', snap.totalQuestions);
     await prefs.setInt('tikitaka_streak_days$suffix', snap.streakDays);
     await prefs.setInt('tikitaka_best_streak$suffix', snap.bestStreak);
@@ -604,6 +677,25 @@ class TikiTakaLfm {
     _lastActiveDate = last == null || last.isEmpty
         ? null
         : DateTime.tryParse(last);
+
+    // 오답노트 복원
+    final mistakesRaw = prefs.getString('tikitaka_mistakes$_suffix');
+    if (mistakesRaw != null) {
+      try {
+        final list = jsonDecode(mistakesRaw);
+        if (list is List) {
+          _mistakes
+            ..clear()
+            ..addAll([
+              for (final e in list)
+                if (e is Map<String, dynamic>) TkMistake.fromJson(e),
+            ]);
+        }
+      } catch (_) {
+        _mistakes.clear();
+        await prefs.remove('tikitaka_mistakes$_suffix');
+      }
+    }
 
     final raw = prefs.getString('tikitaka_history$_suffix');
     if (raw == null) return;
@@ -629,18 +721,20 @@ class TikiTakaLfm {
 
   /// 초기화 (현재 주제 학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다.
   ///
-  /// 대화 기록·질문 수·현재 streak은 초기화되지만 역대 최고 streak은 유지된다.
+  /// 대화 기록·오답노트·질문 수·현재 streak은 초기화되지만 역대 최고 streak은 유지된다.
   Future<void> reset() async {
     _saveTimer?.cancel();
     _saveTimer = null;
     _pending = null;
     _history.clear();
+    _mistakes.clear();
     _quizIndex = 0;
     _totalQuestions = 0;
     _streakDays = 0;
     _lastActiveDate = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tikitaka_history$_suffix');
+    await prefs.remove('tikitaka_mistakes$_suffix');
     await prefs.remove('tikitaka_total_questions$_suffix');
     await prefs.remove('tikitaka_streak_days$_suffix');
     await prefs.remove('tikitaka_last_active$_suffix');
@@ -652,13 +746,17 @@ class TikiTakaLfm {
   /// 현재 주제의 저장 키 접미사 (기본 주제는 빈 문자열 → 기존 키 호환)
   String get _suffix => _studySubject.isEmpty ? '' : '_$_studySubject';
 
+  /// 현재 학습 주제 (기본값은 빈 문자열)
+  String get subject => _studySubject;
+
   List<TkMessage> get history => List.unmodifiable(_history);
 }
 
-/// 특정 시점의 한 과목 기록·통계 스냅샷 — 디바운스 저장의 원자적 단위
+/// 특정 시점의 한 과목 기록·통계·오답노트 스냅샷 — 디바운스 저장의 원자적 단위
 class _Snapshot {
   final String subject;
   final List<TkMessage> history;
+  final List<TkMistake> mistakes;
   final int totalQuestions;
   final int streakDays;
   final int bestStreak;
@@ -667,6 +765,7 @@ class _Snapshot {
   const _Snapshot({
     required this.subject,
     required this.history,
+    required this.mistakes,
     required this.totalQuestions,
     required this.streakDays,
     required this.bestStreak,

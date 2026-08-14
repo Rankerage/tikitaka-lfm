@@ -789,6 +789,66 @@ void main() {
     });
   });
 
+  group('오답노트 (mistake book)', () {
+    test('항목 추가·조회·삭제·비우기', () {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.addMistake('이차방정식이 뭐야?', '근의 공식',
+          note: 'b²-4ac 부호 주의');
+      engine.addMistake('피타고라스 정리는?', 'a²+b²=c²');
+
+      expect(engine.mistakes, hasLength(2));
+      expect(engine.mistakes.first.question, '이차방정식이 뭐야?');
+      expect(engine.mistakes.first.note, 'b²-4ac 부호 주의');
+
+      engine.removeMistake(0);
+      expect(engine.mistakes.single.question, '피타고라스 정리는?');
+
+      engine.clearMistakes();
+      expect(engine.mistakes, isEmpty);
+      engine.dispose();
+    });
+
+    test('과목별로 분리 저장·복원된다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      engine.addMistake('수학 오답', '정답');
+      await engine.flush();
+
+      engine.setSubject('영어');
+      engine.addMistake('영어 오답', 'answer');
+      await engine.flush();
+      expect(engine.mistakes, hasLength(1));
+
+      // 수학 복원
+      final math = TikiTakaLfm(client: client);
+      math.setSubject('수학');
+      await math.loadHistory();
+      expect(math.mistakes.single.question, '수학 오답');
+      engine.dispose();
+      math.dispose();
+    });
+
+    test('내보내기에 오답노트 섹션이 포함된다', () async {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.setSubject('과학');
+      engine.addMistake('광합성 장소는?', '엽록체');
+      final md = engine.exportHistory();
+      expect(md, contains('## 오답 노트'));
+      expect(md, contains('1. **Q:** 광합성 장소는?'));
+      expect(md, contains('**A:** 엽록체'));
+      engine.dispose();
+    });
+
+    test('reset은 오답노트를 초기화한다', () async {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.addMistake('문제', '답');
+      await engine.reset();
+      expect(engine.mistakes, isEmpty);
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));

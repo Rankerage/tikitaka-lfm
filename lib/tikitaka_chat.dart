@@ -179,6 +179,31 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
     }
   }
 
+  /// 마지막 Q&A 쌍을 오답노트에 저장한다 (로컬, 모델 호출 없음)
+  void _saveMistake() {
+    TkMessage? lastUser;
+    TkMessage? lastAssistant;
+    for (final m in _messages.reversed) {
+      if (m.role == 'user' && lastUser == null) {
+        lastUser = m;
+      }
+      if (m.role == 'assistant' &&
+          lastAssistant == null &&
+          m.content.isNotEmpty) {
+        lastAssistant = m;
+      }
+      if (lastUser != null && lastAssistant != null) break;
+    }
+    if (lastUser == null || lastAssistant == null) return;
+    widget.engine.addMistake(lastUser.content, lastAssistant.content);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('오답노트에 저장했습니다'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   /// 마지막 사용자 답변을 비히스토리 방식으로 평가해 피드백 표시
   Future<void> _evaluate() async {
     if (_busy) return;
@@ -331,6 +356,12 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
                   avatar: const Icon(Icons.event_note, size: 16),
                   label: const Text('계획'),
                   onPressed: _busy ? null : _plan,
+                ),
+                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: const Icon(Icons.bookmark_add, size: 16),
+                  label: const Text('오답'),
+                  onPressed: (_busy || !_hasUserMessage) ? null : _saveMistake,
                 ),
               ],
             ),

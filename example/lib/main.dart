@@ -421,6 +421,7 @@ class StatsPage extends StatefulWidget {
 class _StatsPageState extends State<StatsPage> {
   Map<String, TkStats>? _all;
   int? _totalQuestions;
+  List<TkMistake> _mistakes = const [];
 
   @override
   void initState() {
@@ -436,7 +437,13 @@ class _StatsPageState extends State<StatsPage> {
     setState(() {
       _all = all;
       _totalQuestions = total;
+      _mistakes = widget.engine.mistakes;
     });
+  }
+
+  void _deleteMistake(int index) {
+    widget.engine.removeMistake(index);
+    setState(() => _mistakes = widget.engine.mistakes);
   }
 
   /// 최근 대화를 AI로 요약해 대화상자로 보여준다.
@@ -533,6 +540,39 @@ class _StatsPageState extends State<StatsPage> {
                       ),
                     ),
                   ),
+                // 오답노트 (현재 과목)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  child: Text(
+                    '오답노트 (${_label(widget.engine.subject)} · '
+                    '${_mistakes.length}개)',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                if (_mistakes.isEmpty)
+                  const Card(
+                    child: ListTile(
+                      leading: Icon(Icons.bookmark_border),
+                      title: Text('오답노트가 비어 있습니다'),
+                      subtitle: Text('채팅에서 "오답" 버튼으로 틀린 문제를 저장하세요'),
+                    ),
+                  )
+                else
+                  for (var i = 0; i < _mistakes.length; i++)
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.bookmark, color: Colors.redAccent),
+                        title: Text(_mistakes[i].question,
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('A: ${_mistakes[i].answer}',
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: '삭제',
+                          onPressed: () => _deleteMistake(i),
+                        ),
+                      ),
+                    ),
               ],
             ),
     );

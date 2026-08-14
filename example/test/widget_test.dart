@@ -193,4 +193,25 @@ void main() {
     expect(find.textContaining('1.1.0'), findsWidgets);
     expect(find.textContaining('lfm2.5-thinking'), findsOneWidget);
   });
+
+  testWidgets('오답 버튼은 사용자 메시지가 없으면 비활성', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    final chip = tester.widget<ActionChip>(
+      find.widgetWithText(ActionChip, '오답'),
+    );
+    expect(chip.onPressed, isNull);
+  });
+
+  testWidgets('통계 화면에 오답노트 빈 상태가 보인다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('오답노트가 비어 있습니다'), findsOneWidget);
+    expect(find.textContaining('오답노트'), findsWidgets);
+  });
 }
