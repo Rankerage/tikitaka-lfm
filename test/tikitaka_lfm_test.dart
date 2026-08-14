@@ -840,6 +840,18 @@ void main() {
       engine.dispose();
     });
 
+    test('내보내기에 이번 주 활동 요약이 포함된다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      engine.setSubject('수학');
+      await engine.ask('1');
+      await engine.ask('2');
+      final md = engine.exportHistory();
+      expect(md, contains('이번 주 활동: 1/7일 · 총 2개 질문'));
+      engine.dispose();
+    });
+
     test('reset은 오답노트를 초기화한다', () async {
       final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
       engine.addMistake('문제', '답');
@@ -937,6 +949,70 @@ void main() {
       await engine.reset();
       expect(engine.weeklyActivity.values.every((v) => v == 0), isTrue);
       engine.dispose();
+    });
+  });
+
+  group('deleteSubject (과목 데이터 삭제)', () {
+    test('과목의 모든 데이터를 삭제한다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client, clock: () => now);
+      engine.setSubject('수학');
+      await engine.ask('질문');
+      engine.addMistake('오답', '답');
+      await engine.flush();
+
+      final deleted = await engine.deleteSubject('수학');
+      expect(deleted, isTrue);
+
+      // 새 엔진에서 복원 시 빈 상태
+      final restored = TikiTakaLfm(client: client, clock: () => now);
+      restored.setSubject('수학');
+      await restored.loadHistory();
+      expect(restored.history, isEmpty);
+      expect(restored.mistakes, isEmpty);
+      expect(restored.stats.totalQuestions, 0);
+      engine.dispose();
+      restored.dispose();
+    });
+
+    test('존재하지 않는 과목은 false (오류 없음)', () async {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      expect(await engine.deleteSubject('없는과목'), isFalse);
+      engine.dispose();
+    });
+
+    test('현재 과목 삭제 시 메모리도 초기화된다', () async {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.setSubject('수학');
+      await engine.ask('질문');
+      expect(engine.stats.totalQuestions, 1);
+
+      await engine.deleteSubject('수학');
+      expect(engine.history, isEmpty);
+      expect(engine.stats.totalQuestions, 0);
+      engine.dispose();
+    });
+
+    test('다른 과목 데이터는 영향받지 않는다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client, clock: () => now);
+      engine.setSubject('수학');
+      await engine.ask('수학 질문');
+      await engine.flush();
+      engine.setSubject('영어');
+      await engine.ask('영어 질문');
+      await engine.flush();
+
+      await engine.deleteSubject('수학');
+
+      final eng = TikiTakaLfm(client: client, clock: () => now);
+      eng.setSubject('영어');
+      await eng.loadHistory();
+      expect(eng.history.first.content, '영어 질문');
+      engine.dispose();
+      eng.dispose();
     });
   });
 

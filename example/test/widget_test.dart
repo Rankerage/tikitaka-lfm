@@ -245,6 +245,24 @@ void main() {
     expect(find.text('0'), findsNWidgets(7));
   });
 
+  testWidgets('과목 데이터 삭제는 확인 대화상자를 거친다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    // 현재 과목(수학) 카드의 삭제 버튼
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('데이터 삭제'), findsOneWidget);
+
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+    // 삭제 후에도 페이지 정상 표시
+    expect(find.text('학습 통계'), findsOneWidget);
+  });
+
   testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
     await tester.pumpWidget(const TikiTakaApp());
     await tester.pump();

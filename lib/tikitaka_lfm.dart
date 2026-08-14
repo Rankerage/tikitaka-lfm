@@ -358,6 +358,13 @@ class TikiTakaLfm {
     if (s.lastActive != null) {
       buf.writeln('> 마지막 활동: ${_formatDate(s.lastActive!)}');
     }
+    if (_dailyActivity.isNotEmpty) {
+      final weekly = weeklyActivity;
+      final weeklyTotal =
+          weekly.values.fold<int>(0, (sum, v) => sum + v);
+      final activeDays = weekly.values.where((v) => v > 0).length;
+      buf.writeln('> 이번 주 활동: $activeDays/7일 · 총 $weeklyTotal개 질문');
+    }
     buf.writeln();
     if (_history.isEmpty && _mistakes.isEmpty) {
       buf.writeln('_아직 대화 기록이 없습니다._');
@@ -784,6 +791,46 @@ class TikiTakaLfm {
       _history.clear();
       await prefs.remove('tikitaka_history$_suffix');
     }
+  }
+
+  /// 과목의 모든 데이터(기록·오답노트·일별 활동·통계)를 삭제한다.
+  ///
+  /// 현재 과목이면 메모리 상태도 함께 초기화한다.
+  /// 반환값: 해당 과목에 저장된 데이터가 있었는지 여부.
+  Future<bool> deleteSubject(String subject) async {
+    final suffix = subject.isEmpty ? '' : '_$subject';
+    final prefs = await SharedPreferences.getInstance();
+    var existed = false;
+    for (final key in [
+      'tikitaka_history$suffix',
+      'tikitaka_mistakes$suffix',
+      'tikitaka_daily$suffix',
+      'tikitaka_total_questions$suffix',
+      'tikitaka_streak_days$suffix',
+      'tikitaka_best_streak$suffix',
+      'tikitaka_last_active$suffix',
+    ]) {
+      if (prefs.containsKey(key)) {
+        existed = true;
+        await prefs.remove(key);
+      }
+    }
+    if (subject == _studySubject) {
+      // 현재 과목 → 메모리 초기화 (대기 중인 저장도 취소)
+      _saveTimer?.cancel();
+      _saveTimer = null;
+      _pending = null;
+      _history.clear();
+      _mistakes.clear();
+      _dailyActivity.clear();
+      _reviewIndex = 0;
+      _quizIndex = 0;
+      _totalQuestions = 0;
+      _streakDays = 0;
+      _bestStreak = 0;
+      _lastActiveDate = null;
+    }
+    return existed;
   }
 
   /// 초기화 (현재 주제 학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다.

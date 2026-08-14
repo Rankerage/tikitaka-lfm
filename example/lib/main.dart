@@ -685,6 +685,31 @@ class _StatsPageState extends State<StatsPage> {
     setState(() => _mistakes = widget.engine.mistakes);
   }
 
+  /// 과목 데이터 삭제 (확인 후)
+  Future<void> _confirmDeleteSubject(String subject) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('"${_label(subject)}" 데이터 삭제'),
+        content: const Text('이 과목의 대화 기록·오답노트·통계를 모두 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await widget.engine.deleteSubject(subject);
+    if (!mounted) return;
+    await _load();
+  }
+
   /// 최근 대화를 AI로 요약해 대화상자로 보여준다.
   Future<void> _summarize() async {
     final messenger = ScaffoldMessenger.of(context);
@@ -837,6 +862,11 @@ class _StatsPageState extends State<StatsPage> {
                         '🔥 ${e.value.streakDays}일 연속 · '
                         '🏆 최고 ${e.value.bestStreak}일 · '
                         '💬 ${e.value.totalQuestions}개',
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: '과목 데이터 삭제',
+                        onPressed: () => _confirmDeleteSubject(e.key),
                       ),
                     ),
                   ),

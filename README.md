@@ -50,6 +50,9 @@ final plan = await engine.learningPlan(minutes: 10);
 engine.addMistake('문제', '답', note: '메모');
 final review = engine.nextMistakeReview(); // 순환 순서, 없으면 null
 
+// 과목 데이터 전체 삭제 (기록·오답노트·통계)
+await engine.deleteSubject('수학');
+
 // 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
 engine.tutorSay(engine.makeQuiz());
 
