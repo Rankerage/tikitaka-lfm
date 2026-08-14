@@ -408,6 +408,153 @@ class _SubjectDialogState extends State<_SubjectDialog> {
   }
 }
 
+/// 오답노트 복습 — 플래시카드 방식으로 틀린 문제를 순환하며 푼다
+class MistakeReviewPage extends StatefulWidget {
+  final TikiTakaLfm engine;
+
+  const MistakeReviewPage({super.key, required this.engine});
+
+  @override
+  State<MistakeReviewPage> createState() => _MistakeReviewPageState();
+}
+
+class _MistakeReviewPageState extends State<MistakeReviewPage> {
+  TkMistake? _current;
+  bool _revealed = false;
+  int _reviewed = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _next();
+  }
+
+  void _next() {
+    final m = widget.engine.nextMistakeReview();
+    setState(() {
+      _current = m;
+      _revealed = false;
+      if (m != null) _reviewed++;
+    });
+  }
+
+  /// 맞았어요 — 오답노트에서 제거하고 다음 문제
+  void _gotIt() {
+    final current = _current;
+    if (current == null) return;
+    widget.engine
+        .removeMistake(widget.engine.mistakes.indexOf(current));
+    _next();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = _current;
+    final remaining = widget.engine.mistakes.length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('오답노트 복습')),
+      body: current == null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bookmark_border,
+                      size: 48, color: Colors.grey),
+                  const SizedBox(height: 12),
+                  const Text('오답노트가 비어 있습니다'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('닫기'),
+                  ),
+                ],
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '남은 오답 $remaining개 · 복습한 문제 $_reviewed개',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    color: Colors.teal.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          const Text('Q',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.teal)),
+                          const SizedBox(height: 8),
+                          Text(current.question,
+                              style: const TextStyle(fontSize: 18, height: 1.4)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (!_revealed)
+                    FilledButton.icon(
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('정답 보기'),
+                      onPressed: () => setState(() => _revealed = true),
+                    )
+                  else ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            const Text('A',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            Text(current.answer,
+                                style: const TextStyle(
+                                    fontSize: 16, height: 1.4)),
+                            if (current.note != null &&
+                                current.note!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text('📝 ${current.note}',
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.grey)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _next,
+                            child: const Text('다음'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.check),
+                            label: const Text('맞았어요'),
+                            onPressed: _gotIt,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+}
+
 /// 과목별 학습 통계 화면
 class StatsPage extends StatefulWidget {
   final TikiTakaLfm engine;
@@ -543,10 +690,27 @@ class _StatsPageState extends State<StatsPage> {
                 // 오답노트 (현재 과목)
                 Padding(
                   padding: const EdgeInsets.only(top: 16, bottom: 8),
-                  child: Text(
-                    '오답노트 (${_label(widget.engine.subject)} · '
-                    '${_mistakes.length}개)',
-                    style: Theme.of(context).textTheme.titleSmall,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '오답노트 (${_label(widget.engine.subject)} · '
+                          '${_mistakes.length}개)',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.style, size: 18),
+                        label: const Text('복습'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => MistakeReviewPage(
+                                engine: widget.engine),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (_mistakes.isEmpty)

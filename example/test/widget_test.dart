@@ -214,4 +214,22 @@ void main() {
     expect(find.textContaining('오답노트가 비어 있습니다'), findsOneWidget);
     expect(find.textContaining('오답노트'), findsWidgets);
   });
+
+  testWidgets('복습 모드는 오답노트가 비어 있으면 안내 후 닫힌다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('복습'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('오답노트 복습'), findsOneWidget);
+    expect(find.text('오답노트가 비어 있습니다'), findsOneWidget);
+
+    await tester.tap(find.text('닫기'));
+    await tester.pumpAndSettle();
+    expect(find.text('학습 통계'), findsOneWidget);
+  });
 }

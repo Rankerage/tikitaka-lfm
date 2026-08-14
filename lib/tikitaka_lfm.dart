@@ -131,6 +131,7 @@ class TikiTakaLfm {
   Timer? _saveTimer;
   _Snapshot? _pending; // 디바운스 저장 대기 중인 스냅샷 (주제·데이터 고정)
   final List<TkMistake> _mistakes = [];
+  int _reviewIndex = 0;
 
   int _totalQuestions = 0;
   int _streakDays = 0;
@@ -538,6 +539,7 @@ class TikiTakaLfm {
   /// 오답노트에 항목을 추가한다 (현재 주제 기준, 로컬 저장).
   void addMistake(String question, String answer, {String? note}) {
     _mistakes.add(TkMistake(question: question, answer: answer, note: note));
+    _reviewIndex = 0;
     _scheduleSave();
   }
 
@@ -548,6 +550,7 @@ class TikiTakaLfm {
   void removeMistake(int index) {
     if (index < 0 || index >= _mistakes.length) return;
     _mistakes.removeAt(index);
+    _reviewIndex = 0;
     _scheduleSave();
   }
 
@@ -555,7 +558,19 @@ class TikiTakaLfm {
   void clearMistakes() {
     if (_mistakes.isEmpty) return;
     _mistakes.clear();
+    _reviewIndex = 0;
     _scheduleSave();
+  }
+
+  /// 오답노트 복습 — 순환 순서로 다음 항목을 반환한다 (없으면 null).
+  ///
+  /// 반환된 항목은 [mistakes]의 실제 인스턴스이므로,
+  /// '맞았어요' 처리 시 [removeMistake]에 indexOf로 넘길 수 있다.
+  TkMistake? nextMistakeReview() {
+    if (_mistakes.isEmpty) return null;
+    final m = _mistakes[_reviewIndex % _mistakes.length];
+    _reviewIndex++;
+    return m;
   }
 
   /// 정답 평가 — '평가해줘' 요청이 대화 기록에 쌓인다 (학습 기록 보존용)
@@ -680,6 +695,7 @@ class TikiTakaLfm {
 
     // 오답노트 복원
     final mistakesRaw = prefs.getString('tikitaka_mistakes$_suffix');
+    _reviewIndex = 0;
     if (mistakesRaw != null) {
       try {
         final list = jsonDecode(mistakesRaw);
@@ -728,6 +744,7 @@ class TikiTakaLfm {
     _pending = null;
     _history.clear();
     _mistakes.clear();
+    _reviewIndex = 0;
     _quizIndex = 0;
     _totalQuestions = 0;
     _streakDays = 0;

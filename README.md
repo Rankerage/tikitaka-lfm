@@ -43,6 +43,10 @@ final summary = await engine.summarize(maxLines: 3);
 // 주제별 맞춤 학습 계획 (최근 대화·통계 반영)
 final plan = await engine.learningPlan(minutes: 10);
 
+// 오답노트 복습 (플래시카드)
+engine.addMistake('문제', '답', note: '메모');
+final review = engine.nextMistakeReview(); // 순환 순서, 없으면 null
+
 // 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
 engine.tutorSay(engine.makeQuiz());
 

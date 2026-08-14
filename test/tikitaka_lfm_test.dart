@@ -847,6 +847,40 @@ void main() {
       expect(engine.mistakes, isEmpty);
       engine.dispose();
     });
+
+    test('복습: 오답노트를 순환하며 다음 항목을 반환', () {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.addMistake('문제1', '답1');
+      engine.addMistake('문제2', '답2');
+
+      final first = engine.nextMistakeReview();
+      final second = engine.nextMistakeReview();
+      final third = engine.nextMistakeReview(); // 순환 → 다시 첫 항목
+
+      expect(first!.question, '문제1');
+      expect(second!.question, '문제2');
+      expect(third!.question, '문제1');
+      engine.dispose();
+    });
+
+    test('복습: 오답노트가 비어 있으면 null', () {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      expect(engine.nextMistakeReview(), isNull);
+      engine.dispose();
+    });
+
+    test('복습: 맞았어요로 삭제하면 순환이 처음부터', () {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.addMistake('문제1', '답1');
+      engine.addMistake('문제2', '답2');
+
+      final first = engine.nextMistakeReview(); // 문제1
+      engine.removeMistake(engine.mistakes.indexOf(first!)); // 문제1 삭제
+
+      final next = engine.nextMistakeReview();
+      expect(next!.question, '문제2'); // 삭제 후 인덱스 리셋 → 처음부터
+      engine.dispose();
+    });
   });
 
   group('프로액티브 학습 타이머', () {
