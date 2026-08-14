@@ -102,6 +102,16 @@ tool/build_android.sh debug      # 또는 release
 # → build/apk/app-debug.apk
 ```
 
+#### 릴리스 서명
+`example/android/key.properties` + `app/tikitaka-release.jks`(둘 다 git 제외)가
+있으면 release APK가 그 키로 서명된다 (없으면 디버그 키로 폴백).
+키는 Play 스토어 업로드에 그대로 쓰이므로 백업을 잘 보관할 것:
+```bash
+keytool -printcert -jarfile build/apk/app-release.apk   # v1 한정
+# 또는
+apksigner verify --print-certs build/apk/app-release.apk # v2/v3 포함
+```
+
 ### Windows 데스크톱 빌드
 플러그인 심링크가 UNC에서 실패하는 같은 이유로 `tool/build_windows.sh`를 쓴다
 (Windows 쪽에서 `flutter run -d windows`로 바로 실행 가능):

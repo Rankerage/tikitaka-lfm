@@ -22,3 +22,7 @@ Thumbs.db
 
 # ARM 인스턴스 dsh 배포용 파일 (이 리포와 무관)
 tool/dsh-web.service
+
+# Android 릴리스 서명 (로컬 전용, 절대 커밋 금지)
+**/key.properties
+*.jks
