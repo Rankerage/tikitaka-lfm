@@ -251,6 +251,36 @@ class TikiTakaLfm {
         lastActive: _lastActiveDate,
       );
 
+  /// 저장된 모든 과목의 통계를 반환한다 (과목 → [TkStats]).
+  ///
+  /// 저장 키를 스캔하며, 현재 주제는 저장 전 상태라도 메모리 값이 우선 반영된다.
+  /// 기본 주제는 빈 문자열 키('')로 나타난다.
+  Future<Map<String, TkStats>> allStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final result = <String, TkStats>{};
+    const prefix = 'tikitaka_total_questions';
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith(prefix)) continue;
+      final suffix = key.substring(prefix.length); // '' 또는 '_수학'
+      final subject = suffix.isEmpty ? '' : suffix.substring(1);
+      result[subject] = TkStats(
+        totalQuestions: prefs.getInt('tikitaka_total_questions$suffix') ?? 0,
+        streakDays: prefs.getInt('tikitaka_streak_days$suffix') ?? 0,
+        bestStreak: prefs.getInt('tikitaka_best_streak$suffix') ?? 0,
+        lastActive: _parseLastActive(
+            prefs.getString('tikitaka_last_active$suffix')),
+      );
+    }
+    // 현재 주제는 저장 전 상태라도 메모리 기준 최신값으로 덮어쓴다
+    result[_studySubject] = stats;
+    return result;
+  }
+
+  static DateTime? _parseLastActive(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
   /// 빈 답변 방어 — 형식 오류로 취급한다.
   void _requireNonEmpty(String reply) {
     if (reply.isEmpty) {

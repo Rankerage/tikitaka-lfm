@@ -631,6 +631,48 @@ void main() {
     });
   });
 
+  group('allStats (과목 전체 통계)', () {
+    test('저장된 모든 과목의 통계를 반환', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('1');
+      await engine.flush();
+      engine.setSubject('영어');
+      await engine.ask('2');
+      await engine.flush();
+
+      final all = await engine.allStats();
+      expect(all.keys.toSet(), {'수학', '영어'});
+      expect(all['수학']!.totalQuestions, 1);
+      expect(all['영어']!.totalQuestions, 1);
+      engine.dispose();
+    });
+
+    test('현재 주제의 메모리 통계가 최신으로 반영된다 (저장 전)', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('1'); // 디바운스로 아직 저장 전
+
+      final all = await engine.allStats();
+      expect(all['수학']!.totalQuestions, 1);
+      engine.dispose();
+    });
+
+    test('기본 주제는 빈 키로 취급된다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      await engine.ask('기본 주제 질문');
+      await engine.flush();
+
+      final all = await engine.allStats();
+      expect(all.containsKey(''), isTrue);
+      expect(all['']!.totalQuestions, 1);
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));

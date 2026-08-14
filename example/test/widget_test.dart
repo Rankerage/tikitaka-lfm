@@ -113,4 +113,21 @@ void main() {
         warnIfMissed: false);
     await tester.pump();
   });
+
+  testWidgets('통계 화면에 과목별 streak이 표시된다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    expect(find.text('학습 통계'), findsOneWidget);
+    expect(find.textContaining('일 연속'), findsWidgets);
+    // 현재 과목(수학) 행
+    expect(find.text('수학'), findsOneWidget);
+    // 뒤로가기로 홈 복귀
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('🎯 TikiTaka'), findsOneWidget);
+  });
 }

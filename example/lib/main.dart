@@ -252,6 +252,16 @@ class _HomePageState extends State<HomePage> {
         title: const Text('🎯 TikiTaka'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: '학습 통계',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => StatsPage(engine: _engine!),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_sweep),
             tooltip: '학습 기록 초기화',
             onPressed: _resetAll,
@@ -369,6 +379,75 @@ class _SubjectDialogState extends State<_SubjectDialog> {
           child: const Text('추가'),
         ),
       ],
+    );
+  }
+}
+
+/// 과목별 학습 통계 화면
+class StatsPage extends StatefulWidget {
+  final TikiTakaLfm engine;
+
+  const StatsPage({super.key, required this.engine});
+
+  @override
+  State<StatsPage> createState() => _StatsPageState();
+}
+
+class _StatsPageState extends State<StatsPage> {
+  Map<String, TkStats>? _all;
+  int? _totalQuestions;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final all = await widget.engine.allStats();
+    final total =
+        all.values.fold<int>(0, (sum, s) => sum + s.totalQuestions);
+    if (!mounted) return;
+    setState(() {
+      _all = all;
+      _totalQuestions = total;
+    });
+  }
+
+  static String _label(String subject) => subject.isEmpty ? '기본' : subject;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = _all;
+    return Scaffold(
+      appBar: AppBar(title: const Text('학습 통계')),
+      body: all == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.insights),
+                    title: Text('전체 질문 ${_totalQuestions ?? 0}개'),
+                    subtitle: Text('${all.length}개 과목'),
+                  ),
+                ),
+                for (final e in (all.entries.toList()
+                  ..sort((a, b) => _label(a.key).compareTo(_label(b.key)))))
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.auto_stories),
+                      title: Text(_label(e.key)),
+                      subtitle: Text(
+                        '🔥 ${e.value.streakDays}일 연속 · '
+                        '🏆 최고 ${e.value.bestStreak}일 · '
+                        '💬 ${e.value.totalQuestions}개',
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
