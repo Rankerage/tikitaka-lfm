@@ -58,6 +58,15 @@ cd example && flutter run
 > 이 리포는 Flutter SDK가 없는 환경에서 개발하므로, Windows 쪽 툴체인이 있는
 > WSL에서는 `cmd.exe /c "pushd \\wsl.localhost\Ubuntu\home\saint\tikitaka_lfm && C:\Users\mathe\flutter\bin\flutter.bat <cmd>"` 형태로 실행한다.
 
+### Android APK 빌드 (WSL + Windows Gradle)
+Windows Gradle은 `\\wsl.localhost` UNC 파일시스템에서 mmap(FileHasher) 오류로
+WSL 경로에서 직접 빌드하지 못한다. `tool/build_android.sh`가 프로젝트를 Windows
+로컬 디스크(NTFS)로 복사해 빌드한 뒤 APK를 `build/apk/`로 가져온다:
+```bash
+tool/build_android.sh debug      # 또는 release
+# → build/apk/app-debug.apk
+```
+
 ## ⚠️ Android 실기기 네트워크 설정 (필수)
 
 이 엔진은 로컬 Ollama 서버에 **HTTP(비보안)** 로 연결한다. Android 9(API 28) 이상에서는 기본적으로 cleartext HTTP 트래픽이 **차단**되므로, **호스트 앱**의 `AndroidManifest.xml`에 아래 설정 중 하나가 필요하다.

@@ -33,4 +33,16 @@ void main() {
     expect(find.text('호스트'), findsOneWidget);
     expect(find.text('모델'), findsOneWidget);
   });
+
+  testWidgets('채팅 상태바에 연결 다시 확인 버튼이 있다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
+
+    // 테스트 환경 HTTP는 항상 400 → 오프라인 유지, 크래시 없어야 함
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('오프라인'), findsOneWidget);
+  });
 }

@@ -18,6 +18,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
   List<TkMessage> _messages = [];
   bool _busy = false;
   bool _online = false;
+  bool _checking = false;
 
   @override
   void initState() {
@@ -54,6 +55,27 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
         }
       });
       _scrollToBottom();
+    }
+  }
+
+  /// Ollama 연결 상태만 다시 확인 (기록은 유지)
+  Future<void> _recheck() async {
+    if (!mounted) return;
+    setState(() => _checking = true);
+    final online = await widget.engine.isAvailable();
+    if (mounted) {
+      setState(() {
+        _online = online;
+        _checking = false;
+      });
+      if (online) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('LFM2.5 연결 확인됨'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -119,6 +141,23 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
               ),
               const Spacer(),
               Text(widget.subject, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              // 연결 다시 확인
+              if (_checking)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  tooltip: '연결 다시 확인',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _recheck,
+                ),
             ],
           ),
         ),
