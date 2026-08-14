@@ -321,6 +321,30 @@ class TikiTakaLfm {
       '${t.year}-${t.month.toString().padLeft(2, '0')}-'
       '${t.day.toString().padLeft(2, '0')}';
 
+  /// 최근 대화를 AI로 요약한다 (히스토리에 기록하지 않는 1회성 요청).
+  ///
+  /// 빈 기록이면 빈 문자열을 반환한다. [maxLines] 줄 이내 요약을 요청하며,
+  /// 튜터 페르소나가 아닌 중립 시스템 프롬프트로 수행한다.
+  Future<String> summarize({int maxLines = 3}) async {
+    if (_history.isEmpty) return '';
+    final transcript = _recentHistory()
+        .map((m) => '${m.role == 'user' ? 'Q' : 'A'}: ${m.content}')
+        .join('\n');
+    final prompt = '아래 대화를 $maxLines줄 이내로 요약해줘. '
+        '핵심 개념과 오답 포인트를 중심으로:\n\n$transcript';
+    final buffer = StringBuffer();
+    await for (final delta in _streamRequest(
+      [TkMessage(role: 'user', content: prompt)],
+      systemPrompt: '너는 학습 기록을 간결하게 요약하는 조수야. '
+          '사실만 짧게 요약하고 질문은 하지 마.',
+    )) {
+      buffer.write(delta);
+    }
+    final summary = buffer.toString();
+    _requireNonEmpty(summary);
+    return summary;
+  }
+
   /// 빈 답변 방어 — 형식 오류로 취급한다.
   void _requireNonEmpty(String reply) {
     if (reply.isEmpty) {
@@ -338,12 +362,13 @@ class TikiTakaLfm {
   ///
   /// 응답은 줄 단위 JSON(NDJSON)이며, 각 줄의 `message.content`를 yield하고
   /// `done: true` 줄에서 종료한다. 비정상 응답은 [FormatException]을 던진다.
-  Stream<String> _streamRequest(List<TkMessage> messages) async* {
+  Stream<String> _streamRequest(List<TkMessage> messages,
+      {String? systemPrompt}) async* {
     final body = jsonEncode({
       'model': config.model,
       'stream': true,
       'messages': [
-        {'role': 'system', 'content': _systemPrompt},
+        {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
         ...messages.map((m) => {'role': m.role, 'content': m.content}),
       ],
     });

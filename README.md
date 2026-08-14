@@ -37,6 +37,9 @@ final all = await engine.allStats();
 // 학습 기록을 마크다운으로 내보내기 (Obsidian 노트용)
 final notes = engine.exportHistory();
 
+// 최근 대화를 AI로 요약 (히스토리에 기록하지 않음)
+final summary = await engine.summarize(maxLines: 3);
+
 // 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
 engine.tutorSay(engine.makeQuiz());
 
@@ -103,6 +106,9 @@ WSL 경로에서 직접 빌드하지 못한다. `tool/build_android.sh`가 프�
 ```bash
 tool/build_android.sh debug      # 또는 release
 # → build/apk/app-debug.apk
+
+tool/build_android.sh bundle     # Play 스토어용 App Bundle (릴리스 키 서명)
+# → build/aab/app-release.aab
 ```
 
 #### 릴리스 서명

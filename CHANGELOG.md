@@ -18,6 +18,8 @@
 - **기록 내보내기** — `exportHistory()` 마크다운(Obsidian용), 통계 화면에서 클립보드 복사
 - **퀴즈 템플릿 확장** — `makeQuiz()` 3→8개 유형 순환
 - **GitHub Actions CI** — `.github/workflows/ci.yml` (analyze + test, 루트/example)
+- **AI 학습 요약** — `summarize(maxLines)` 중립 프롬프트로 최근 대화 요약 (비히스토리)
+- **App Bundle** — `tool/build_android.sh bundle` → Play 스토어용 `app-release.aab` (릴리스 키 서명)
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)

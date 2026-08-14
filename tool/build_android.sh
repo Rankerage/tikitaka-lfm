@@ -7,16 +7,25 @@
 # 빌드하고, 결과 APK를 워크스페이스로 복사해 온다.
 #
 # 사용법:
-#   tool/build_android.sh [debug|release]
+#   tool/build_android.sh [debug|release|bundle]
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 MODE="${1:-debug}"
 case "$MODE" in
-  debug|release) ;;
-  *) echo "usage: $0 [debug|release]"; exit 1 ;;
+  debug|release|bundle) ;;
+  *) echo "usage: $0 [debug|release|bundle]"; exit 1 ;;
 esac
+
+# 모드 → flutter build 인자 매핑
+if [[ "$MODE" == "bundle" ]]; then
+  BUILD_TARGET='appbundle'
+  EXTRA='--release'
+else
+  BUILD_TARGET='apk'
+  EXTRA="--$MODE"
+fi
 
 WIN_BUILD_ROOT='C:\Users\mathe\.tikitaka_build'
 WIN_PROJECT="$WIN_BUILD_ROOT\\tikitaka_lfm"
@@ -32,17 +41,22 @@ cmd.exe /c "robocopy $UNC_SRC $WIN_PROJECT /E /XD .git .dart_tool build .gradle 
 echo "== 2/4 pub get =="
 cmd.exe /c "pushd $WIN_EXAMPLE && $FLUTTER_BAT pub get" >/dev/null
 
-echo "== 3/4 flutter build apk --$MODE =="
-cmd.exe /c "pushd $WIN_EXAMPLE && $FLUTTER_BAT build apk --$MODE" | tail -20
+echo "== 3/4 flutter build ${BUILD_TARGET:-apk} =="
+cmd.exe /c "pushd $WIN_EXAMPLE && $FLUTTER_BAT build ${BUILD_TARGET:-apk} $EXTRA" | tail -20
 
-echo "== 4/4 APK를 워크스페이스로 복사 =="
-APK_SRC="/mnt/c/Users/mathe/.tikitaka_build/tikitaka_lfm/example/build/app/outputs/flutter-apk/app-${MODE}.apk"
-if [[ -f "$APK_SRC" ]]; then
+echo "== 4/4 산출물을 워크스페이스로 복사 =="
+if [[ "$MODE" == "bundle" ]]; then
+  APK_SRC="/mnt/c/Users/mathe/.tikitaka_build/tikitaka_lfm/example/build/app/outputs/bundle/release/app-release.aab"
+  DEST="build/aab"
+else
+  APK_SRC="/mnt/c/Users/mathe/.tikitaka_build/tikitaka_lfm/example/build/app/outputs/flutter-apk/app-${MODE}.apk"
   DEST="build/apk"
+fi
+if [[ -f "$APK_SRC" ]]; then
   mkdir -p "$DEST"
   cp "$APK_SRC" "$DEST/"
-  echo "OK: $PWD/$DEST/app-${MODE}.apk"
+  echo "OK: $PWD/$DEST/$(basename "$APK_SRC")"
 else
-  echo "FAIL: APK를 찾지 못했습니다: $APK_SRC"
+  echo "FAIL: 산출물을 찾지 못했습니다: $APK_SRC"
   exit 1
 fi

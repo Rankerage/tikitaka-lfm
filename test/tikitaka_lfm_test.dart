@@ -704,6 +704,52 @@ void main() {
     });
   });
 
+  group('summarize (AI 학습 요약)', () {
+    test('빈 기록이면 HTTP 호출 없이 빈 문자열', () async {
+      final log = <http.Request>[];
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('x'), log: log));
+      expect(await engine.summarize(), '');
+      expect(log, isEmpty);
+      engine.dispose();
+    });
+
+    test('최근 대화를 중립 프롬프트로 요약하고 히스토리를 건드리지 않는다', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) => _chatReply('요약: 이차방정식'), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('이차방정식이 뭐야?');
+      final before = engine.history.length;
+
+      final summary = await engine.summarize(maxLines: 2);
+
+      expect(summary, '요약: 이차방정식');
+      // 히스토리 비파괴
+      expect(engine.history.length, before);
+      // 요청 본문: 중립 시스템 프롬프트 + 대화 대본 + 줄 수 제한
+      final body = jsonDecode(log.last.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List;
+      expect((messages.first['content'] as String), contains('요약하는 조수'));
+      expect((messages.last['content'] as String), contains('2줄'));
+      expect((messages.last['content'] as String), contains('이차방정식이 뭐야?'));
+      engine.dispose();
+    });
+
+    test('빈 요약 응답이면 FormatException', () async {
+      final log = <http.Request>[];
+      // 첫 요청(ask)은 정상, 두 번째 요청(summarize)은 빈 응답
+      final client = _mock((req) {
+        if (log.length == 1) return _chatReply('정상 답변');
+        return streamReply([], done: true);
+      }, log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('질문');
+      await expectLater(engine.summarize(), throwsA(isA<FormatException>()));
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));
