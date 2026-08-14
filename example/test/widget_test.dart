@@ -232,4 +232,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('학습 통계'), findsOneWidget);
   });
+
+  testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+
+    expect(find.text('학습 알림 (매일)'), findsOneWidget);
+
+    // 테스트 환경(플랫폼 채널 없음)에서 토글 → 실패 스낵바 또는 상태 유지, 크래시 없음
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

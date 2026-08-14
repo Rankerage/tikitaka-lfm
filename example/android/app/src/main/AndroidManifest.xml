@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 로컬 Ollama(HTTP) 접근에 필요 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 정기 학습 알림 (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="TikiTaka"
         android:name="${applicationName}"

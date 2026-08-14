@@ -1,8 +1,55 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tikitaka_lfm/tikitaka_chat.dart';
 import 'package:tikitaka_lfm/tikitaka_lfm.dart';
+
+/// 정기 학습 알림 (flutter_local_notifications 래퍼)
+final FlutterLocalNotificationsPlugin _notifications =
+    FlutterLocalNotificationsPlugin();
+const int _reminderId = 1001;
+
+/// 매일 반복 학습 알림을 예약한다 (실패 시 false).
+Future<bool> scheduleDailyReminder(String message) async {
+  if (kIsWeb) return false;
+  try {
+    const init = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+    await _notifications.initialize(settings: init);
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'tikitaka_reminder',
+        '학습 알림',
+        channelDescription: '정기 학습 시간 알림',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    );
+    await _notifications.periodicallyShow(
+      id: _reminderId,
+      title: '🎯 TikiTaka',
+      body: message,
+      repeatInterval: RepeatInterval.daily,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<void> cancelDailyReminder() async {
+  if (kIsWeb) return;
+  try {
+    await _notifications.cancel(id: _reminderId);
+  } catch (_) {}
+}
 
 /// TikiTaka LFM2.5 예제 앱 — 온디바이스 AI 학습 파트너
 void main() {
@@ -39,6 +86,7 @@ class _HomePageState extends State<HomePage> {
   static const _kPort = 'tikitaka.port';
   static const _kModel = 'tikitaka.model';
   static const _kSubject = 'tikitaka.subject';
+  static const _kReminder = 'tikitaka.reminder';
 
   static const _subjects = ['수학', '영어', '과학', '역사', '코딩'];
 
@@ -46,6 +94,7 @@ class _HomePageState extends State<HomePage> {
   int _port = 11434;
   String _model = 'lfm2.5-thinking:1.2b';
   String _subject = '수학';
+  bool _remindersOn = false;
 
   /// 설정 변경 시 채팅 위젯을 새로 만들기 위한 키
   int _engineEpoch = 0;
@@ -78,9 +127,36 @@ class _HomePageState extends State<HomePage> {
       _port = prefs.getInt(_kPort) ?? _port;
       _model = prefs.getString(_kModel) ?? _model;
       _subject = prefs.getString(_kSubject) ?? _subject;
+      _remindersOn = prefs.getBool(_kReminder) ?? false;
     });
+    if (_remindersOn) {
+      // 같은 id로 다시 예약하면 기존 일정을 대체한다 (멱등)
+      unawaited(scheduleDailyReminder('$_subject 공부할 시간이에요! 🔥'));
+    }
     await _engine!.loadHistory();
     _refreshStats();
+  }
+
+  /// 학습 알림 켜기/끄기
+  Future<void> _setReminders(bool on) async {
+    var success = false;
+    if (on) {
+      success = await scheduleDailyReminder('$_subject 공부할 시간이에요! 🔥');
+    } else {
+      await cancelDailyReminder();
+      success = true;
+    }
+    if (!mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('알림을 설정할 수 없습니다 (플랫폼 미지원)')),
+      );
+      return;
+    }
+    setState(() => _remindersOn = on);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kReminder, on);
   }
 
   Future<void> _saveSettings() async {
@@ -193,7 +269,21 @@ class _HomePageState extends State<HomePage> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setSheetState) => SwitchListTile(
+                title: const Text('학습 알림 (매일)'),
+                subtitle: const Text('공부할 시간에 로컬 알림을 보냅니다'),
+                contentPadding: EdgeInsets.zero,
+                value: _remindersOn,
+                onChanged: (v) async {
+                  setSheetState(() {}); // 진행 표시용 즉시 리빌드
+                  await _setReminders(v);
+                  if (mounted) setSheetState(() {});
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: FilledButton(

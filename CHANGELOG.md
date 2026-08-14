@@ -27,6 +27,7 @@
 - **릴리스 정리** — 버전 1.1.0 (versionCode 2), Android/Web/Windows 전체 재검증
 - **오답노트** — `addMistake`/`removeMistake`/`clearMistakes` (과목별 저장), 채팅 '오답' 버튼, 통계 화면 목록·내보내기 포함
 - **오답노트 복습** — `nextMistakeReview()` 순환 플래시카드, 통계 화면 '복습' 진입 (정답 보기·맞았어요 삭제)
+- **학습 알림** — flutter_local_notifications 매일 반복 알림, 설정 스위치 (core library desugaring + POST_NOTIFICATIONS)
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)
