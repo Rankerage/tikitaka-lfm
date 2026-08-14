@@ -330,17 +330,17 @@ void main() {
   });
 
   group('퀴즈 / 인사말 / 평가', () {
-    test('makeQuiz는 템플릿을 순환', () {
+    test('makeQuiz는 8개 템플릿을 순환', () {
       final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
       engine.setSubject('영어');
-      final q1 = engine.makeQuiz();
-      final q2 = engine.makeQuiz();
-      final q3 = engine.makeQuiz();
-      final q4 = engine.makeQuiz();
-      expect(q1, contains('영어'));
-      expect(q1, isNot(equals(q2)));
-      expect(q1, isNot(equals(q3)));
-      expect(q1, equals(q4)); // 3개 템플릿 순환
+      final seen = <String>[];
+      for (var i = 0; i < 8; i++) {
+        seen.add(engine.makeQuiz());
+      }
+      // 8개 템플릿이 모두 서로 다르다
+      expect(seen.toSet(), hasLength(8));
+      // 9번째 호출은 첫 템플릿으로 순환
+      expect(engine.makeQuiz(), equals(seen.first));
       engine.dispose();
     });
 

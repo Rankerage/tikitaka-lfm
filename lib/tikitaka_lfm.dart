@@ -404,12 +404,17 @@ class TikiTakaLfm {
         '오늘의 첫 문제 하나 던질게!';
   }
 
-  /// 퀴즈 출제 (주제 기반)
+  /// 퀴즈 출제 (주제 기반) — 다양한 유형을 순환한다
   String makeQuiz() {
     final templates = [
       '자, "$_studySubject"에서 가장 어려웠던 개념 하나 말해볼래?',
       '$_studySubject 오늘 배운 내용 중 핵심 키워드 3개만 말해봐!',
       '내가 개념 하나 말할게. 설명해볼 수 있어?',
+      '$_studySubject에서 방금 배운 걸 30초 안에 설명해봐!',
+      '실생활에서 $_studySubject를 쓰는 예 하나 들어볼래?',
+      '$_studySubject 문제 하나 내줄까? 먼저 개념부터 말해봐!',
+      '지난번에 설명했던 부분, 다시 한번 설명해볼래?',
+      '오늘 배운 $_studySubject 내용으로 나만의 예시를 만들어봐!',
     ];
     return templates[_quizIndex++ % templates.length];
   }

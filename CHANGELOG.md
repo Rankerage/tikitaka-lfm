@@ -16,6 +16,8 @@
 - **Windows 데스크톱 빌드** — `tool/build_windows.sh`
 - **릴리스 서명** — `tikitaka-release.jks` + `key.properties`(git 제외), 디버그 키 폴백
 - **기록 내보내기** — `exportHistory()` 마크다운(Obsidian용), 통계 화면에서 클립보드 복사
+- **퀴즈 템플릿 확장** — `makeQuiz()` 3→8개 유형 순환
+- **GitHub Actions CI** — `.github/workflows/ci.yml` (analyze + test, 루트/example)
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)
