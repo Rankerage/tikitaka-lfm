@@ -33,14 +33,15 @@ gh run list --repo "$REPO" --limit 1 2>/dev/null | head -3 || echo "   (Actions�
 if [[ "$MODE" == "--web" || "$MODE" == "--release" ]]; then
   echo "== 3/5 웹 데모 빌드 =="
   (cd example && flutter build web --release)
-  echo "== 4/5 gh-pages 배포 =="
-  git subtree push --prefix example/build/web origin gh-pages 2>/dev/null \
-    || { echo "   subtree 실패 — 직접 브랜치 구성 시도"; 
-         git branch -D gh-pages 2>/dev/null || true; git checkout -b gh-pages;
-         rm -rf * 2>/dev/null || true; cp -r example/build/web/. .;
-         git add -A && git commit -m "web demo" && git push -f origin gh-pages;
-         git checkout master; }
-  echo "   ✅ Pages 배포 완료 → https://$REPO (Settings > Pages 참고)"
+  echo "== 4/5 gh-pages 배포 (웹 빌드만, 별도 임시 저장소) =="
+  TMP="$(mktemp -d)"
+  cp -r example/build/web/. "$TMP/"
+  (cd "$TMP" && git init -q -b gh-pages && git add -A \
+    && git -c user.name="TikiTaka" -c user.email="dev@tikitaka.local" commit -q -m "web demo" \
+    && git remote add origin "https://github.com/$REPO.git" \
+    && git push -f origin gh-pages)
+  rm -rf "$TMP"
+  echo "   ✅ Pages 재배포 완료 → https://$REPO"
 fi
 
 if [[ "$MODE" == "--release" ]]; then
