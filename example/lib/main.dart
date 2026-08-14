@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tikitaka_lfm/tikitaka_chat.dart';
 import 'package:tikitaka_lfm/tikitaka_lfm.dart';
@@ -420,7 +421,26 @@ class _StatsPageState extends State<StatsPage> {
   Widget build(BuildContext context) {
     final all = _all;
     return Scaffold(
-      appBar: AppBar(title: const Text('학습 통계')),
+      appBar: AppBar(
+        title: const Text('학습 통계'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy_all),
+            tooltip: '기록을 마크다운으로 내보내기 (클립보드)',
+            onPressed: () async {
+              final md = widget.engine.exportHistory();
+              await Clipboard.setData(ClipboardData(text: md));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('학습 기록을 클립보드에 복사했습니다 (Obsidian에 붙여넣기 가능)'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: all == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(

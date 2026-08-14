@@ -281,6 +281,46 @@ class TikiTakaLfm {
     return DateTime.tryParse(raw);
   }
 
+  /// 대화 기록을 마크다운(Obsidian 등 노트 앱용)으로 내보낸다.
+  ///
+  /// 날짜별 섹션으로 Q&A를 정리하고, 상단에 과목·통계 요약을 포함한다.
+  String exportHistory() {
+    final s = stats;
+    final subjectLabel = _studySubject.isEmpty ? '기본' : _studySubject;
+    final buf = StringBuffer()
+      ..writeln('# 학습 기록 — $subjectLabel')
+      ..writeln()
+      ..writeln('> 🔥 연속 ${s.streakDays}일 · 🏆 최고 ${s.bestStreak}일 · '
+          '💬 ${s.totalQuestions}개 질문');
+    if (s.lastActive != null) {
+      buf.writeln('> 마지막 활동: ${_formatDate(s.lastActive!)}');
+    }
+    buf.writeln();
+    if (_history.isEmpty) {
+      buf.writeln('_아직 대화 기록이 없습니다._');
+      return buf.toString();
+    }
+    String? currentDay;
+    for (final m in _history) {
+      final day = _formatDate(m.timestamp);
+      if (day != currentDay) {
+        currentDay = day;
+        buf
+          ..writeln('## $day')
+          ..writeln();
+      }
+      final prefix = m.role == 'user' ? '**Q:**' : '**A:**';
+      buf
+        ..writeln('$prefix ${m.content}')
+        ..writeln();
+    }
+    return buf.toString();
+  }
+
+  static String _formatDate(DateTime t) =>
+      '${t.year}-${t.month.toString().padLeft(2, '0')}-'
+      '${t.day.toString().padLeft(2, '0')}';
+
   /// 빈 답변 방어 — 형식 오류로 취급한다.
   void _requireNonEmpty(String reply) {
     if (reply.isEmpty) {

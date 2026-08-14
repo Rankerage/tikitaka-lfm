@@ -34,6 +34,9 @@ final stats = engine.stats; // totalQuestions, streakDays, bestStreak, lastActiv
 // 모든 과목의 통계 (과목 → TkStats)
 final all = await engine.allStats();
 
+// 학습 기록을 마크다운으로 내보내기 (Obsidian 노트용)
+final notes = engine.exportHistory();
+
 // 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
 engine.tutorSay(engine.makeQuiz());
 

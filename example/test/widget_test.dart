@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -129,5 +130,31 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('🎯 TikiTaka'), findsOneWidget);
+  });
+
+  testWidgets('통계 화면에서 기록을 클립보드로 내보낼 수 있다', (tester) async {
+    final clipboardCalls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        clipboardCalls.add(call);
+        return null;
+      },
+    );
+
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.copy_all));
+    await tester.pumpAndSettle();
+
+    final setData = clipboardCalls.where(
+        (c) => c.method == 'Clipboard.setData');
+    expect(setData, isNotEmpty);
+    final args = setData.first.arguments as Map;
+    expect((args['text'] as String), contains('# 학습 기록'));
   });
 }

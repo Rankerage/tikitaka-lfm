@@ -673,6 +673,37 @@ void main() {
     });
   });
 
+  group('exportHistory (마크다운 내보내기)', () {
+    test('과목·통계·Q&A를 마크다운으로 내보낸다', () async {
+      final client = _mock((req) => _chatReply('근의 공식이야!'));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('이차방정식 풀이는?');
+
+      final md = engine.exportHistory();
+      expect(md, contains('# 학습 기록 — 수학'));
+      expect(md, contains('**Q:** 이차방정식 풀이는?'));
+      expect(md, contains('**A:** 근의 공식이야!'));
+      expect(md, contains('💬 1개 질문'));
+      // 날짜 섹션 (오늘 날짜)
+      final today = DateTime.now();
+      final day = '${today.year}-'
+          '${today.month.toString().padLeft(2, '0')}-'
+          '${today.day.toString().padLeft(2, '0')}';
+      expect(md, contains('## $day'));
+      engine.dispose();
+    });
+
+    test('빈 기록이면 안내 문구를 포함한다', () {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.setSubject('영어');
+      final md = engine.exportHistory();
+      expect(md, contains('# 학습 기록 — 영어'));
+      expect(md, contains('아직 대화 기록이 없습니다'));
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));
