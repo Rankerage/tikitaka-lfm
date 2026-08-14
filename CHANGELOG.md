@@ -2,6 +2,20 @@
 
 이 프로젝트의 변경 이력. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 기반.
 
+## [1.2.0] - 2026-08-14
+
+### Added
+- **학습 알림** — flutter_local_notifications 매일 반복 로컬 알림, 설정 스위치 (core library desugaring + POST_NOTIFICATIONS)
+- **오답노트** — 과목별 저장, 채팅 '오답' 버튼, 통계 화면 목록·내보내기 포함
+- **오답노트 복습** — `nextMistakeReview()` 순환 플래시카드, 정답 보기·맞았어요 삭제
+- **AI 보조 기능** — `summarize()`·`learningPlan()` (실제 모델 통합 검증)
+- **앱 브랜딩** — 티키타카 런처 아이콘·적응형 아이콘·네이티브 스플래시
+- **GitHub Actions CI** — `.github/workflows/ci.yml`
+- **릴리스 산출물** — 서명 APK·Play AAB·Web·Windows 데스크톱
+
+### Changed
+- 버전 1.2.0 (versionCode 3), 앱 정보 다이얼로그
+
 ## [1.1.0] - 2026-08-14
 
 ### Added

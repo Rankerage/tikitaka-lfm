@@ -52,6 +52,8 @@ Future<void> cancelDailyReminder() async {
 }
 
 /// TikiTaka LFM2.5 예제 앱 — 온디바이스 AI 학습 파트너
+const String kAppVersion = '1.2.0';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const TikiTakaApp());
@@ -348,7 +350,7 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => showAboutDialog(
               context: context,
               applicationName: 'TikiTaka',
-              applicationVersion: '1.1.0',
+              applicationVersion: kAppVersion,
               applicationIcon: const Icon(Icons.sports_soccer,
                   size: 48, color: Colors.teal),
               children: [

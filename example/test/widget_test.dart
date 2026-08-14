@@ -190,7 +190,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('TikiTaka'), findsWidgets);
-    expect(find.textContaining('1.1.0'), findsWidgets);
+    expect(find.textContaining(kAppVersion), findsWidgets);
     expect(find.textContaining('lfm2.5-thinking'), findsOneWidget);
   });
 
