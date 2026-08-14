@@ -155,6 +155,8 @@ class _HomePageState extends State<HomePage> {
       // 같은 id로 다시 예약하면 기존 일정을 대체한다 (멱등)
       unawaited(scheduleDailyReminder('$_subject 공부할 시간이에요! 🔥'));
     }
+    // 현재 과목을 먼저 설정해야 해당 과목의 통계가 로드된다 (시작 시 streak 표시 버그)
+    _engine!.setSubject(_subject);
     await _engine!.loadHistory();
     _refreshStats();
   }
@@ -239,6 +241,7 @@ class _HomePageState extends State<HomePage> {
       _engineEpoch++;
       _rebuildEngine();
     });
+    _engine!.setSubject(_subject);
     await _engine!.loadHistory();
     _refreshStats();
   }
@@ -273,6 +276,7 @@ class _HomePageState extends State<HomePage> {
       _engineEpoch++;
       _rebuildEngine();
     });
+    _engine!.setSubject(_subject);
     await _engine!.loadHistory();
     _refreshStats();
     _saveSettings();

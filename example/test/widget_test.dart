@@ -290,6 +290,21 @@ void main() {
     expect(find.widgetWithText(ActionChip, 'Listen'), findsOneWidget);
   });
 
+  testWidgets('저장된 과목 통계가 시작 시 표시된다', (tester) async {
+    // 수학 과목에 streak 데이터가 저장된 상태
+    SharedPreferences.setMockInitialValues({
+      'tikitaka_total_questions_수학': 5,
+      'tikitaka_streak_days_수학': 3,
+      'tikitaka_best_streak_수학': 7,
+    });
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
+    await tester.pumpAndSettle();
+
+    // 통계 표시줄에 현재 과목(수학)의 streak이 보인다
+    expect(find.textContaining('3일 연속'), findsOneWidget);
+    expect(find.textContaining('질문 5개'), findsOneWidget);
+  });
+
   testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
     await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
