@@ -157,4 +157,18 @@ void main() {
     final args = setData.first.arguments as Map;
     expect((args['text'] as String), contains('# 학습 기록'));
   });
+
+  testWidgets('통계 화면에서 AI 요약을 시도하면 빈 기록 안내가 나온다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.summarize));
+    await tester.pumpAndSettle();
+
+    // 기록이 없으므로 HTTP 호출 없이 안내 스낵바
+    expect(find.textContaining('기록이 없습니다'), findsOneWidget);
+  });
 }

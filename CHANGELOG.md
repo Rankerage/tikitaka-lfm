@@ -20,6 +20,7 @@
 - **GitHub Actions CI** — `.github/workflows/ci.yml` (analyze + test, 루트/example)
 - **AI 학습 요약** — `summarize(maxLines)` 중립 프롬프트로 최근 대화 요약 (비히스토리)
 - **App Bundle** — `tool/build_android.sh bundle` → Play 스토어용 `app-release.aab` (릴리스 키 서명)
+- **요약 UI** — 통계 화면에서 `summarize()` 호출, 결과 대화상자 표시 (통합 테스트에서 실제 모델 검증)
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)

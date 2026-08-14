@@ -56,4 +56,20 @@ void main() {
     expect(engine.history, hasLength(2));
     expect(engine.history.last.role, 'assistant');
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('실제 모델로 학습 요약 생성', () async {
+    if (!await engine.isAvailable()) {
+      markTestSkipped(
+          'Ollama($host:$port)에 $model 모델이 없어 통합 테스트를 건너뜁니다.');
+      return;
+    }
+    // 대화를 하나 만든 뒤 요약
+    final before = engine.history.length;
+    await for (final _ in engine.askStream('1+1은? 답만 짧게 말해줘')) {}
+    expect(engine.history.length, before + 2);
+    final summary = await engine.summarize(maxLines: 2);
+    expect(summary.trim(), isNotEmpty);
+    // 요약은 히스토리에 남지 않는다
+    expect(engine.history.length, before + 2);
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

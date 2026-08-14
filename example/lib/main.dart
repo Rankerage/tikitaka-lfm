@@ -415,6 +415,44 @@ class _StatsPageState extends State<StatsPage> {
     });
   }
 
+  /// 최근 대화를 AI로 요약해 대화상자로 보여준다.
+  Future<void> _summarize() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('요약 생성 중...')));
+    try {
+      final summary = await widget.engine.summarize(maxLines: 5);
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      if (summary.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('아직 대화 기록이 없습니다')),
+        );
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('오늘의 학습 요약'),
+          content: SingleChildScrollView(
+            child: SelectableText(summary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('닫기'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('⚠️ 요약 실패: ${e.toString().split('\n').first}')),
+      );
+    }
+  }
+
   static String _label(String subject) => subject.isEmpty ? '기본' : subject;
 
   @override
@@ -424,6 +462,11 @@ class _StatsPageState extends State<StatsPage> {
       appBar: AppBar(
         title: const Text('학습 통계'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.summarize),
+            tooltip: 'AI 학습 요약',
+            onPressed: _summarize,
+          ),
           IconButton(
             icon: const Icon(Icons.copy_all),
             tooltip: '기록을 마크다운으로 내보내기 (클립보드)',
