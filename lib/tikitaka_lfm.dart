@@ -67,13 +67,24 @@ class TikiTakaLfm {
   /// 요청 시 모델에 전달할 최대 대화 메시지 수 (컨텍스트 오버플로 방지)
   static const int _maxContextMessages = 20;
 
+  /// 메모리·저장소에 보관할 최대 대화 메시지 수 (오래된 기록은 앞에서 제거)
+  static const int _maxStoredMessages = 100;
+
+  /// 기록 저장 디바운스 — 연속 대화 중 불필요한 중복 쓰기를 줄인다.
+  final Duration saveDebounce;
+
   String _studySubject = '';
   int _quizIndex = 0;
   Timer? _proactiveTimer;
+  Timer? _saveTimer;
+  bool _dirty = false;
 
   /// [client]를 직접 주입하면 테스트에서 HTTP를 모킹할 수 있다.
-  TikiTakaLfm({LfmConfig? config, http.Client? client})
-      : config = config ?? const LfmConfig(),
+  TikiTakaLfm({
+    LfmConfig? config,
+    http.Client? client,
+    this.saveDebounce = const Duration(milliseconds: 300),
+  })  : config = config ?? const LfmConfig(),
         _client = client ?? http.Client(),
         _ownsClient = client == null;
 
@@ -118,10 +129,10 @@ class TikiTakaLfm {
   /// AI에게 메시지 보내기 (스트리밍) — 답변이 토큰 단위로 순서대로 내려온다.
   ///
   /// - 호출 즉시 사용자 메시지를 히스토리에 추가한다.
-  /// - 스트림이 정상 완료되면 전체 답변을 히스토리에 저장한다.
+  /// - 스트림이 정상 완료되면 전체 답변을 히스토리에 저장한다(디바운스).
   /// - 오류나 소비자 취소 시 추가된 메시지를 되돌린다(rollback).
   Stream<String> askStream(String userMessage) async* {
-    _history.add(TkMessage(role: 'user', content: userMessage));
+    _append(TkMessage(role: 'user', content: userMessage));
     var committed = false;
     try {
       final buffer = StringBuffer();
@@ -130,11 +141,9 @@ class TikiTakaLfm {
         yield delta;
       }
       final reply = buffer.toString();
-      if (reply.isEmpty) {
-        throw const FormatException('LFM2.5 응답 형식 오류 (내용 없음)');
-      }
-      _history.add(TkMessage(role: 'assistant', content: reply));
-      await _saveHistory();
+      _requireNonEmpty(reply);
+      _append(TkMessage(role: 'assistant', content: reply));
+      _scheduleSave();
       committed = true;
     } finally {
       if (!committed) {
@@ -151,7 +160,22 @@ class TikiTakaLfm {
     }
   }
 
-  /// 컨텍스트 오버플로를 막기 위해 최근 메시지만 추린다 (저장된 전체 기록은 유지)
+  /// 대화 메시지를 추가하되 상한(_maxStoredMessages)을 넘으면 오래된 것부터 제거
+  void _append(TkMessage message) {
+    _history.add(message);
+    if (_history.length > _maxStoredMessages) {
+      _history.removeRange(0, _history.length - _maxStoredMessages);
+    }
+  }
+
+  /// 빈 답변 방어 — 형식 오류로 취급한다.
+  void _requireNonEmpty(String reply) {
+    if (reply.isEmpty) {
+      throw const FormatException('LFM2.5 응답 형식 오류 (내용 없음)');
+    }
+  }
+
+  /// 컨텍스트 오버플로를 막기 위해 최근 메시지만 추린다 (기록은 최근 N개 유지)
   List<TkMessage> _recentHistory() {
     if (_history.length <= _maxContextMessages) return _history;
     return _history.sublist(_history.length - _maxContextMessages);
@@ -237,10 +261,26 @@ class TikiTakaLfm {
     return templates[_quizIndex++ % templates.length];
   }
 
-  /// 정답 평가 (간단한 규칙 기반 + AI)
+  /// 정답 평가 — '평가해줘' 요청이 대화 기록에 쌓인다 (학습 기록 보존용)
+  ///
+  /// 기록에 남기지 않고 1회성으로 평가하려면 [gradeDirect]를 사용한다.
   Future<String> grade(String answer) async {
     if (answer.length < 5) return '조금 더 길게 말해봐! 힌트: $_studySubject 핵심부터~';
     return ask('내가 말한 건데, 평가해주고 다음 문제 내줘: "$answer"');
+  }
+
+  /// 답변 평가 (1회성) — 히스토리에 남기지 않는 비파괴 평가 요청
+  Future<String> gradeDirect(String answer) async {
+    if (answer.length < 5) return '조금 더 길게 말해봐! 힌트: $_studySubject 핵심부터~';
+    final buffer = StringBuffer();
+    await for (final delta in _streamRequest([
+      TkMessage(role: 'user', content: '내가 말한 답을 평가하고 힌트를 줘: "$answer"'),
+    ])) {
+      buffer.write(delta);
+    }
+    final reply = buffer.toString();
+    _requireNonEmpty(reply);
+    return reply;
   }
 
   /// 정기적인 능동적 학습 알림 시작
@@ -261,16 +301,40 @@ class TikiTakaLfm {
     _proactiveTimer = null;
   }
 
-  /// 엔진 리소스 정리 (프로액티브 타이머 해제, 소유한 HTTP 클라이언트 닫기)
+  /// 엔진 리소스 정리 (타이머 해제, 대기 중인 기록 저장 시도, HTTP 클라이언트 정리)
   void dispose() {
     stopProactiveLearning();
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    if (_dirty) {
+      unawaited(_writeHistory()); // 마지막 기록 저장 시도 (비동기)
+    }
     if (_ownsClient) {
       _client.close();
     }
   }
 
-  /// 대화 기록 저장
-  Future<void> _saveHistory() async {
+  /// 대화 기록 저장 예약 — [saveDebounce] 동안 추가 호출이 있으면 연기된다.
+  void _scheduleSave() {
+    _dirty = true;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(saveDebounce, () {
+      _saveTimer = null;
+      unawaited(_writeHistory());
+    });
+  }
+
+  /// 대기 중인 기록 저장을 즉시 수행한다 (앱 종료 전·테스트에서 사용).
+  Future<void> flush() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    await _writeHistory();
+  }
+
+  /// 대화 기록 쓰기 (실제 SharedPreferences 저장)
+  Future<void> _writeHistory() async {
+    if (!_dirty) return;
+    _dirty = false;
     final prefs = await SharedPreferences.getInstance();
     final json = jsonEncode(_history.map((m) => m.toJson()).toList());
     await prefs.setString('tikitaka_history', json);
@@ -291,6 +355,9 @@ class TikiTakaLfm {
       _history
         ..clear()
         ..addAll(loaded);
+      if (_history.length > _maxStoredMessages) {
+        _history.removeRange(0, _history.length - _maxStoredMessages);
+      }
     } catch (_) {
       // 손상된 기록은 버리고 키를 제거 (다음 로드에서도 실패하지 않도록)
       _history.clear();
@@ -298,8 +365,11 @@ class TikiTakaLfm {
     }
   }
 
-  /// 초기화 (학습 리셋)
+  /// 초기화 (학습 리셋) — 대기 중인 저장도 취소해 이전 기록이 되살아나지 않게 한다
   Future<void> reset() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _dirty = false;
     _history.clear();
     _quizIndex = 0;
     final prefs = await SharedPreferences.getInstance();

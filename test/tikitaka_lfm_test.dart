@@ -26,6 +26,21 @@ http.Response _json(Object body, {int status = 200}) => http.Response(
 http.Response _chatReply(String content) =>
     _json({'message': {'role': 'assistant', 'content': content}});
 
+/// NDJSON 스트리밍 응답 (Ollama stream:true 형태)
+http.Response streamReply(List<String> chunks, {bool done = true}) {
+  final lines = [
+    for (final c in chunks)
+      jsonEncode({'message': {'role': 'assistant', 'content': c}}),
+    if (done)
+      jsonEncode({
+        'message': {'role': 'assistant', 'content': ''},
+        'done': true,
+      }),
+  ].join('\n');
+  return http.Response(lines, 200,
+      headers: {'content-type': 'application/json; charset=utf-8'});
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -140,20 +155,6 @@ void main() {
   });
 
   group('askStream (스트리밍)', () {
-    http.Response streamReply(List<String> chunks, {bool done = true}) {
-      final lines = [
-        for (final c in chunks)
-          jsonEncode({'message': {'role': 'assistant', 'content': c}}),
-        if (done)
-          jsonEncode({
-            'message': {'role': 'assistant', 'content': ''},
-            'done': true,
-          }),
-      ].join('\n');
-      return http.Response(lines, 200,
-          headers: {'content-type': 'application/json; charset=utf-8'});
-    }
-
     test('델타를 순서대로 내보내고 완료 시 히스토리 저장', () async {
       final log = <http.Request>[];
       final client = _mock((req) => streamReply(['안', '녕', '!']), log: log);
@@ -218,10 +219,11 @@ void main() {
   });
 
   group('loadHistory / reset', () {
-    test('저장된 기록 복원', () async {
+    test('저장된 기록 복원 (flush 후)', () async {
       final client = _mock((req) => _chatReply('ok'));
       final engine = TikiTakaLfm(client: client);
       await engine.ask('첫 질문');
+      await engine.flush(); // 디바운스된 저장을 즉시 확정
       // 새 엔진으로 복원
       final engine2 = TikiTakaLfm(client: client);
       await engine2.loadHistory();
@@ -229,6 +231,78 @@ void main() {
       expect(engine2.history.first.content, '첫 질문');
       engine.dispose();
       engine2.dispose();
+    });
+
+    test('디바운스: flush 전에는 저장되지 않음, flush 후에는 저장됨', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(
+          client: client, saveDebounce: const Duration(minutes: 1));
+      await engine.ask('아직 저장 안 됨');
+
+      // 플러시 전: 새 엔진은 아무것도 못 봄
+      final before = TikiTakaLfm(client: client);
+      await before.loadHistory();
+      expect(before.history, isEmpty);
+
+      // 플러시 후: 저장 확인
+      await engine.flush();
+      final after = TikiTakaLfm(client: client);
+      await after.loadHistory();
+      expect(after.history, hasLength(2));
+      engine.dispose();
+      before.dispose();
+      after.dispose();
+    });
+
+    test('디바운스: 대기 시간이 지나면 자동 저장', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(
+          client: client, saveDebounce: const Duration(milliseconds: 30));
+      await engine.ask('자동 저장');
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      final loaded = TikiTakaLfm(client: client);
+      await loaded.loadHistory();
+      expect(loaded.history, hasLength(2));
+      engine.dispose();
+      loaded.dispose();
+    });
+
+    test('reset은 대기 중인 저장을 취소해 기록이 되살아나지 않는다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(
+          client: client, saveDebounce: const Duration(milliseconds: 30));
+      await engine.ask('지워질 기록');
+      await engine.reset();
+      await Future<void>.delayed(const Duration(milliseconds: 120)); // 타이머가 돌아도
+
+      final loaded = TikiTakaLfm(client: client);
+      await loaded.loadHistory();
+      expect(loaded.history, isEmpty);
+      engine.dispose();
+      loaded.dispose();
+    });
+
+    test('기록 상한: 100개 초과 시 오래된 메시지부터 제거', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+      // 55턴 = 110 메시지 → 최근 100개만 유지
+      for (var i = 0; i < 55; i++) {
+        await engine.ask('메시지 $i');
+      }
+      expect(engine.history, hasLength(100));
+      // 첫 5턴(10개)이 제거되고 '메시지 5'부터 시작
+      expect(engine.history.first.content, '메시지 5');
+      expect(engine.history.last.role, 'assistant');
+
+      // 저장된 데이터도 100개
+      await engine.flush();
+      final loaded = TikiTakaLfm(client: client);
+      await loaded.loadHistory();
+      expect(loaded.history, hasLength(100));
+      expect(loaded.history.first.content, '메시지 5');
+      engine.dispose();
+      loaded.dispose();
     });
 
     test('손상된 기록은 크래시 없이 초기화', () async {
@@ -298,6 +372,45 @@ void main() {
       final r = await engine.grade('x = 2입니다');
       expect(r, '좋아요, 정답!');
       expect(log, hasLength(1));
+      engine.dispose();
+    });
+
+    test('gradeDirect: 히스토리에 남기지 않고 1회성 평가', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) => _chatReply('힌트: 근의 공식을 떠올려봐!'), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+
+      final r = await engine.gradeDirect('x = (-b ± √(b²-4ac)) / 2a');
+
+      expect(r, contains('근의 공식'));
+      expect(log, hasLength(1));
+      // 히스토리 비파괴: 어떤 메시지도 남지 않는다
+      expect(engine.history, isEmpty);
+      engine.dispose();
+    });
+
+    test('gradeDirect: 5자 미만 답변은 AI 호출 없이 힌트', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) => _chatReply('ok'), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      final r = await engine.gradeDirect('네');
+      expect(r, contains('조금 더 길게'));
+      expect(log, isEmpty);
+      expect(engine.history, isEmpty);
+      engine.dispose();
+    });
+
+    test('gradeDirect: 빈 응답이면 FormatException', () async {
+      final client = _mock((req) => streamReply([], done: true));
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await expectLater(
+        engine.gradeDirect('충분히 긴 답변입니다'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(engine.history, isEmpty);
       engine.dispose();
     });
   });
