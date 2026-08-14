@@ -94,7 +94,7 @@ void main() {
 
       final body = jsonDecode(log.single.body) as Map<String, dynamic>;
       expect(body['model'], 'lfm2.5-thinking:1.2b');
-      expect(body['stream'], false);
+      expect(body['stream'], true);
       final messages = body['messages'] as List;
       expect(messages.first['role'], 'system');
       expect((messages.first['content'] as String), contains('수학'));
@@ -135,6 +135,84 @@ void main() {
       // 최신 메시지는 포함
       expect(sent, contains('메시지 24'));
       expect(engine.history, hasLength(50)); // 저장된 전체 기록은 유지
+      engine.dispose();
+    });
+  });
+
+  group('askStream (스트리밍)', () {
+    http.Response streamReply(List<String> chunks, {bool done = true}) {
+      final lines = [
+        for (final c in chunks)
+          jsonEncode({'message': {'role': 'assistant', 'content': c}}),
+        if (done)
+          jsonEncode({
+            'message': {'role': 'assistant', 'content': ''},
+            'done': true,
+          }),
+      ].join('\n');
+      return http.Response(lines, 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    }
+
+    test('델타를 순서대로 내보내고 완료 시 히스토리 저장', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) => streamReply(['안', '녕', '!']), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('과학');
+
+      final deltas = await engine.askStream('광합성이 뭐예요?').toList();
+
+      expect(deltas, ['안', '녕', '!']);
+      // 요청은 stream:true
+      expect(jsonDecode(log.single.body)['stream'], true);
+      // 히스토리 저장
+      expect(engine.history, hasLength(2));
+      expect(engine.history.last.content, '안녕!');
+      engine.dispose();
+    });
+
+    test('HTTP 오류 시 사용자 메시지 롤백 + 예외 전파', () async {
+      final client = MockClient((req) async => http.Response('err', 500));
+      final engine = TikiTakaLfm(client: client);
+
+      await expectLater(
+          engine.askStream('안녕').toList(), throwsException);
+      expect(engine.history, isEmpty);
+      engine.dispose();
+    });
+
+    test('비정상 JSON 줄은 FormatException + 롤백', () async {
+      final client = _mock((req) =>
+          http.Response('{broken json\n{"message":{"content":"x"}}', 200,
+              headers: {'content-type': 'application/json; charset=utf-8'}));
+      final engine = TikiTakaLfm(client: client);
+
+      await expectLater(
+        engine.askStream('질문').toList(),
+        throwsA(isA<FormatException>()),
+      );
+      expect(engine.history, isEmpty);
+      engine.dispose();
+    });
+
+    test('내용 없이 done이 오면 오류 + 롤백', () async {
+      final client = _mock((req) => streamReply([], done: true));
+      final engine = TikiTakaLfm(client: client);
+
+      await expectLater(
+        engine.askStream('질문').toList(),
+        throwsA(isA<FormatException>()),
+      );
+      expect(engine.history, isEmpty);
+      engine.dispose();
+    });
+
+    test('ask()는 askStream의 join과 동일한 결과', () async {
+      final client = _mock((req) => streamReply(['정', '답', '!']));
+      final engine = TikiTakaLfm(client: client);
+      final reply = await engine.ask('2+2는?');
+      expect(reply, '정답!');
+      expect(engine.history, hasLength(2));
       engine.dispose();
     });
   });

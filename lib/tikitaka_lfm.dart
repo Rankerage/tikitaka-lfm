@@ -110,19 +110,44 @@ class TikiTakaLfm {
 - 맞으면 칭찬하고, 틀리면 힌트를 줘
 - 마지막에 다음 질문 1개를 던져''';
 
-  /// AI에게 메시지 보내기 (스트리밍 아님)
+  /// AI에게 메시지 보내기 (스트리밍 아님 — 전체 답변을 기다려 반환)
   ///
-  /// 실패 시 방금 추가된 사용자 메시지를 되돌려(rollback) 기록 불일치를 방지한다.
-  Future<String> ask(String userMessage) async {
+  /// [askStream]을 그대로 사용한다 (히스토리 기록·롤백 동일).
+  Future<String> ask(String userMessage) => askStream(userMessage).join();
+
+  /// AI에게 메시지 보내기 (스트리밍) — 답변이 토큰 단위로 순서대로 내려온다.
+  ///
+  /// - 호출 즉시 사용자 메시지를 히스토리에 추가한다.
+  /// - 스트림이 정상 완료되면 전체 답변을 히스토리에 저장한다.
+  /// - 오류나 소비자 취소 시 추가된 메시지를 되돌린다(rollback).
+  Stream<String> askStream(String userMessage) async* {
     _history.add(TkMessage(role: 'user', content: userMessage));
+    var committed = false;
     try {
-      final reply = await _request(_recentHistory());
+      final buffer = StringBuffer();
+      await for (final delta in _streamRequest(_recentHistory())) {
+        buffer.write(delta);
+        yield delta;
+      }
+      final reply = buffer.toString();
+      if (reply.isEmpty) {
+        throw const FormatException('LFM2.5 응답 형식 오류 (내용 없음)');
+      }
       _history.add(TkMessage(role: 'assistant', content: reply));
       await _saveHistory();
-      return reply;
-    } catch (_) {
-      _history.removeLast(); // 답변 없이 남은 사용자 메시지 제거
-      rethrow;
+      committed = true;
+    } finally {
+      if (!committed) {
+        // 사용자(+부분 답변) 메시지 롤백
+        if (_history.isNotEmpty && _history.last.role == 'assistant') {
+          _history.removeLast();
+        }
+        if (_history.isNotEmpty &&
+            _history.last.role == 'user' &&
+            _history.last.content == userMessage) {
+          _history.removeLast();
+        }
+      }
     }
   }
 
@@ -132,33 +157,62 @@ class TikiTakaLfm {
     return _history.sublist(_history.length - _maxContextMessages);
   }
 
-  /// Ollama /api/chat 호출 (응답 파싱을 방어적으로 처리)
-  Future<String> _request(List<TkMessage> messages) async {
+  /// Ollama /api/chat 스트리밍 호출 — 내용 조각(delta)을 순서대로 내보낸다.
+  ///
+  /// 응답은 줄 단위 JSON(NDJSON)이며, 각 줄의 `message.content`를 yield하고
+  /// `done: true` 줄에서 종료한다. 비정상 응답은 [FormatException]을 던진다.
+  Stream<String> _streamRequest(List<TkMessage> messages) async* {
     final body = jsonEncode({
       'model': config.model,
-      'stream': false,
+      'stream': true,
       'messages': [
         {'role': 'system', 'content': _systemPrompt},
         ...messages.map((m) => {'role': m.role, 'content': m.content}),
       ],
     });
 
-    final res = await _client
-        .post(config.apiUrl,
-            headers: {'Content-Type': 'application/json'}, body: body)
-        .timeout(const Duration(seconds: 60));
+    final request = http.Request('POST', config.apiUrl)
+      ..headers['Content-Type'] = 'application/json'
+      ..body = body;
 
+    final res =
+        await _client.send(request).timeout(const Duration(seconds: 60));
     if (res.statusCode != 200) {
-      throw Exception('LFM2.5 오류: HTTP ${res.statusCode}');
+      // 디버깅을 위해 서버가 준 오류 본문을 함께 전달
+      String detail = '';
+      try {
+        detail = await res.stream
+            .transform(utf8.decoder)
+            .join()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // 본문을 읽지 못해도 상태 코드만으로 예외 처리
+      }
+      throw Exception('LFM2.5 오류: HTTP ${res.statusCode}${detail.isEmpty ? '' : ' — $detail'}');
     }
 
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
-    final message = data is Map<String, dynamic> ? data['message'] : null;
-    final reply = message is Map<String, dynamic> ? message['content'] : null;
-    if (reply is! String) {
-      throw Exception('LFM2.5 응답 형식 오류 (message.content 누락)');
+    await for (final line in res.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .timeout(const Duration(seconds: 60))) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final Object? decoded;
+      try {
+        decoded = jsonDecode(trimmed);
+      } catch (_) {
+        throw const FormatException('LFM2.5 응답 형식 오류 (JSON 파싱 실패)');
+      }
+      if (decoded is! Map<String, dynamic>) continue;
+      final message = decoded['message'];
+      if (message is! Map<String, dynamic>) continue;
+      final content = message['content'];
+      if (content is String && content.isNotEmpty) {
+        yield content;
+      }
+      if (decoded['done'] == true) return; // 스트림 정상 종료
     }
-    return reply;
+    // done 없이 스트림이 끝난 경우(테스트 mock 등)도 정상 종료로 간주
   }
 
   /// AI가 먼저 말 걸기 (능동적 학습)

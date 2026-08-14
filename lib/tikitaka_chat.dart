@@ -85,21 +85,29 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
     _controller.clear();
     setState(() {
       _messages.add(TkMessage(role: 'user', content: message));
+      // 스트리밍 답변 자리(빈 말풍선) — 델타가 도착하면 실시간으로 채워진다
+      _messages.add(TkMessage(role: 'assistant', content: ''));
       _busy = true;
     });
     _scrollToBottom();
     try {
-      final reply = await widget.engine.ask(message);
-      if (mounted) {
+      final buffer = StringBuffer();
+      await for (final delta in widget.engine.askStream(message)) {
+        buffer.write(delta);
+        if (!mounted) return;
         setState(() {
-          _messages.add(TkMessage(role: 'assistant', content: reply));
-          _busy = false;
+          _messages[_messages.length - 1] =
+              TkMessage(role: 'assistant', content: buffer.toString());
         });
         _scrollToBottom();
       }
+      if (!mounted) return;
+      setState(() => _busy = false);
     } catch (e) {
       if (mounted) {
         setState(() {
+          // 빈 자리 제거 후 오류 메시지 표시
+          _messages.removeLast();
           _messages.add(TkMessage(
               role: 'assistant',
               content: '⚠️ LFM2.5 연결 실패. Ollama 실행 확인: ${e.toString().split('\n').first}'));

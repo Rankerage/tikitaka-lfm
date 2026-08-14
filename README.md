@@ -19,6 +19,11 @@ await engine.setSubject('수학');
 final reply = await engine.ask('이차방정식 어려워요');
 // or
 TikiTakaChat(engine: engine, subject: '수학');
+
+// 스트리밍 답변 (토큰 단위로 표시)
+await for (final delta in engine.askStream('이차방정식 어려워요')) {
+  print(delta); // 답변이 조각조각 내려온다
+}
 ```
 
 ## 능동적 학습
