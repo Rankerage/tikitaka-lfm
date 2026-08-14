@@ -750,6 +750,45 @@ void main() {
     });
   });
 
+  group('learningPlan (맞춤 학습 계획)', () {
+    test('주제·통계·최근 대화를 반영한 계획을 요청한다', () async {
+      final log = <http.Request>[];
+      final client = _mock(
+          (req) => _chatReply('1) 개념 복습 2) 문제 풀이'), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('이차방정식이 뭐야?');
+      final before = engine.history.length;
+
+      final plan = await engine.learningPlan(minutes: 5);
+
+      expect(plan, contains('복습'));
+      expect(engine.history.length, before); // 히스토리 비파괴
+      final body = jsonDecode(log.last.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List;
+      expect((messages.first['content'] as String), contains('학습 코치'));
+      final prompt = messages.last['content'] as String;
+      expect(prompt, contains('수학'));
+      expect(prompt, contains('5분'));
+      expect(prompt, contains('이차방정식이 뭐야?'));
+      engine.dispose();
+    });
+
+    test('빈 계획 응답이면 FormatException', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) {
+        if (log.length == 1) return _chatReply('정상 답변');
+        return streamReply([], done: true);
+      }, log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.setSubject('수학');
+      await engine.ask('질문');
+      await expectLater(
+          engine.learningPlan(), throwsA(isA<FormatException>()));
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));

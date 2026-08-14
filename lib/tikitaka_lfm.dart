@@ -332,17 +332,51 @@ class TikiTakaLfm {
         .join('\n');
     final prompt = '아래 대화를 $maxLines줄 이내로 요약해줘. '
         '핵심 개념과 오답 포인트를 중심으로:\n\n$transcript';
+    return _askAux(
+      prompt,
+      systemPrompt: '너는 학습 기록을 간결하게 요약하는 조수야. '
+          '사실만 짧게 요약하고 질문은 하지 마.',
+    );
+  }
+
+  /// 주제별 맞춤 학습 계획을 AI로 생성한다 (히스토리 비파괴).
+  ///
+  /// 최근 대화·학습 통계를 반영해 [minutes] 분짜리 구체적 계획을 제안한다.
+  Future<String> learningPlan({int minutes = 10}) async {
+    final s = stats;
+    final subject = _studySubject.isEmpty ? '기본' : _studySubject;
+    final context = StringBuffer()
+      ..writeln('주제: $subject')
+      ..writeln('최근 streak: ${s.streakDays}일 · 총 질문: ${s.totalQuestions}개');
+    if (_history.isNotEmpty) {
+      context
+        ..writeln('최근 대화:')
+        ..writeln(_recentHistory()
+            .map((m) => '${m.role == 'user' ? 'Q' : 'A'}: ${m.content}')
+            .join('\n'));
+    }
+    final prompt = '$minutes분 분량의 구체적인 학습 계획을 제시해줘. '
+        '복습할 개념, 풀어볼 문제 유형, 마지막에 스스로 확인할 질문을 '
+        '포함해서:\n\n$context';
+    return _askAux(
+      prompt,
+      systemPrompt: '너는 학습 코치야. 구체적이고 실천 가능한 학습 계획을 '
+          '간결하게 제안해. 질문은 하지 마.',
+    );
+  }
+
+  /// 히스토리에 남기지 않는 1회성 AI 요청 (요약·계획 등 보조 기능 공통 경로)
+  Future<String> _askAux(String prompt, {required String systemPrompt}) async {
     final buffer = StringBuffer();
     await for (final delta in _streamRequest(
       [TkMessage(role: 'user', content: prompt)],
-      systemPrompt: '너는 학습 기록을 간결하게 요약하는 조수야. '
-          '사실만 짧게 요약하고 질문은 하지 마.',
+      systemPrompt: systemPrompt,
     )) {
       buffer.write(delta);
     }
-    final summary = buffer.toString();
-    _requireNonEmpty(summary);
-    return summary;
+    final reply = buffer.toString();
+    _requireNonEmpty(reply);
+    return reply;
   }
 
   /// 빈 답변 방어 — 형식 오류로 취급한다.

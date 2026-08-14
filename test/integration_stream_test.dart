@@ -72,4 +72,17 @@ void main() {
     // 요약은 히스토리에 남지 않는다
     expect(engine.history.length, before + 2);
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('실제 모델로 맞춤 학습 계획 생성', () async {
+    if (!await engine.isAvailable()) {
+      markTestSkipped(
+          'Ollama($host:$port)에 $model 모델이 없어 통합 테스트를 건너뜁니다.');
+      return;
+    }
+    final before = engine.history.length;
+    final plan = await engine.learningPlan(minutes: 5);
+    expect(plan.trim(), isNotEmpty);
+    // 계획은 히스토리에 남지 않는다
+    expect(engine.history.length, before);
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

@@ -171,4 +171,14 @@ void main() {
     // 기록이 없으므로 HTTP 호출 없이 안내 스낵바
     expect(find.textContaining('기록이 없습니다'), findsOneWidget);
   });
+
+  testWidgets('계획 버튼은 오프라인에서 오류를 안전하게 처리한다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    // 테스트 환경 HTTP는 항상 400 → 학습 계획 생성 실패 버블
+    await tester.tap(find.widgetWithText(ActionChip, '계획'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('학습 계획 생성 실패'), findsOneWidget);
+  });
 }

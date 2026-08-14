@@ -40,6 +40,9 @@ final notes = engine.exportHistory();
 // 최근 대화를 AI로 요약 (히스토리에 기록하지 않음)
 final summary = await engine.summarize(maxLines: 3);
 
+// 주제별 맞춤 학습 계획 (최근 대화·통계 반영)
+final plan = await engine.learningPlan(minutes: 10);
+
 // 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
 engine.tutorSay(engine.makeQuiz());
 

@@ -143,6 +143,42 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
     _scrollToBottom();
   }
 
+  /// 맞춤 학습 계획을 생성해 대화상자로 보여준다 (히스토리 비파괴)
+  Future<void> _plan() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final plan = await widget.engine.learningPlan();
+      if (!mounted) return;
+      setState(() => _busy = false);
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('맞춤 학습 계획'),
+          content: SingleChildScrollView(
+            child: SelectableText(plan),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('닫기'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _messages.add(TkMessage(
+              role: 'assistant',
+              content: '⚠️ 학습 계획 생성 실패: ${e.toString().split('\n').first}'));
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
   /// 마지막 사용자 답변을 비히스토리 방식으로 평가해 피드백 표시
   Future<void> _evaluate() async {
     if (_busy) return;
@@ -289,6 +325,12 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
                   avatar: const Icon(Icons.check_circle_outline, size: 16),
                   label: const Text('평가'),
                   onPressed: (_busy || !_hasUserMessage) ? null : _evaluate,
+                ),
+                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: const Icon(Icons.event_note, size: 16),
+                  label: const Text('계획'),
+                  onPressed: _busy ? null : _plan,
                 ),
               ],
             ),
