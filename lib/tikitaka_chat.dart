@@ -6,7 +6,16 @@ class TikiTakaChat extends StatefulWidget {
   final TikiTakaLfm engine;
   final String subject;
 
-  const TikiTakaChat({super.key, required this.engine, this.subject = '수학'});
+  /// 대화가 성공적으로 완료(활동 기록)될 때마다 호출된다.
+  /// 예: 호스트 UI가 학습 통계(streak 등)를 갱신하는 용도.
+  final VoidCallback? onActivity;
+
+  const TikiTakaChat({
+    super.key,
+    required this.engine,
+    this.subject = '수학',
+    this.onActivity,
+  });
 
   @override
   State<TikiTakaChat> createState() => _TikiTakaChatState();
@@ -103,6 +112,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
       }
       if (!mounted) return;
       setState(() => _busy = false);
+      widget.onActivity?.call(); // 활동 기록(통계) 후 호스트에 알림
     } catch (e) {
       if (mounted) {
         setState(() {

@@ -19,3 +19,6 @@ Thumbs.db
 
 # 기타
 *.log
+
+# ARM 인스턴스 dsh 배포용 파일 (이 리포와 무관)
+tool/dsh-web.service

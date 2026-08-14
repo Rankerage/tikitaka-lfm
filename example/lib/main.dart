@@ -50,6 +50,7 @@ class _HomePageState extends State<HomePage> {
   int _engineEpoch = 0;
 
   TikiTakaLfm? _engine;
+  TkStats? _stats;
 
   @override
   void initState() {
@@ -77,6 +78,8 @@ class _HomePageState extends State<HomePage> {
       _model = prefs.getString(_kModel) ?? _model;
       _subject = prefs.getString(_kSubject) ?? _subject;
     });
+    await _engine!.loadHistory();
+    _refreshStats();
   }
 
   Future<void> _saveSettings() async {
@@ -90,12 +93,55 @@ class _HomePageState extends State<HomePage> {
   LfmConfig get _config =>
       LfmConfig(host: _host, port: _port, model: _model);
 
+  void _refreshStats() {
+    if (!mounted) return;
+    setState(() => _stats = _engine!.stats);
+  }
+
   void _pickSubject(String subject) {
     setState(() {
       _subject = subject;
       _engineEpoch++; // 새 주제로 채팅 초기화
     });
     _saveSettings();
+  }
+
+  Future<void> _addCustomSubject() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => const _SubjectDialog(),
+    );
+    if (result == null || result.isEmpty || !mounted) return;
+    _pickSubject(result);
+  }
+
+  Future<void> _resetAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('학습 기록 초기화'),
+        content: const Text('대화 기록과 통계를 초기화할까요?\n(최고 streak 기록은 유지됩니다)'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('초기화'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _engine!.reset();
+    if (!mounted) return;
+    setState(() {
+      _engineEpoch++;
+      _rebuildEngine();
+    });
+    await _engine!.loadHistory();
+    _refreshStats();
   }
 
   void _openSettings() async {
@@ -187,15 +233,29 @@ class _HomePageState extends State<HomePage> {
       _engineEpoch++;
       _rebuildEngine();
     });
+    await _engine!.loadHistory();
+    _refreshStats();
     _saveSettings();
   }
 
   @override
   Widget build(BuildContext context) {
+    final stats = _stats;
+    // 기본 주제 + 사용자가 직접 추가한 주제 칩
+    final subjectChips = [
+      ..._subjects,
+      if (!_subjects.contains(_subject)) _subject,
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('🎯 TikiTaka'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: '학습 기록 초기화',
+            onPressed: _resetAll,
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Ollama 연결 설정',
@@ -205,6 +265,29 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
+          // 학습 통계 (연속 streak 등)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: Colors.orange.shade50,
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department,
+                    size: 16, color: Colors.deepOrange),
+                Text(' ${stats?.streakDays ?? 0}일 연속',
+                    style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 14),
+                const Icon(Icons.emoji_events,
+                    size: 16, color: Colors.amber),
+                Text(' 최고 ${stats?.bestStreak ?? 0}일',
+                    style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 14),
+                const Icon(Icons.forum, size: 16, color: Colors.teal),
+                Text(' 질문 ${stats?.totalQuestions ?? 0}개',
+                    style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
           // 주제 선택
           SizedBox(
             height: 48,
@@ -212,7 +295,7 @@ class _HomePageState extends State<HomePage> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                for (final s in _subjects)
+                for (final s in subjectChips)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ChoiceChip(
@@ -221,6 +304,14 @@ class _HomePageState extends State<HomePage> {
                       onSelected: (_) => _pickSubject(s),
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('직접 입력'),
+                    onPressed: _addCustomSubject,
+                  ),
+                ),
               ],
             ),
           ),
@@ -230,10 +321,54 @@ class _HomePageState extends State<HomePage> {
               key: ValueKey('chat-$_engineEpoch-$_subject'),
               engine: _engine!,
               subject: _subject,
+              onActivity: _refreshStats,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 새 학습 주제 입력 다이얼로그 — controller 수명을 위젯이 소유해
+/// 닫힘 애니메이션 중 use-after-dispose를 방지한다.
+class _SubjectDialog extends StatefulWidget {
+  const _SubjectDialog();
+
+  @override
+  State<_SubjectDialog> createState() => _SubjectDialogState();
+}
+
+class _SubjectDialogState extends State<_SubjectDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('새 학습 주제'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: '예: 물리, 한국사, 프로그래밍',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: const Text('추가'),
+        ),
+      ],
     );
   }
 }
