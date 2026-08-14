@@ -2,6 +2,11 @@
 
 **능동적 학습 파트너** — AI가 먼저 말 걸고, 학습을 시키는 온디바이스 엔진.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Rankerage/tikitaka-lfm)](https://github.com/Rankerage/tikitaka-lfm/releases)
+[![Web Demo](https://img.shields.io/badge/demo-web%20(gh--pages)-teal)](https://rankerage.github.io/tikitaka-lfm/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Rankerage/tikitaka-lfm/ci.yml?branch=main&label=CI)](https://github.com/Rankerage/tikitaka-lfm/actions)
+
 ## 설치 (패키지로 사용)
 ```bash
 # Ollama + LFM2.5 (PC 또는 폰에)
@@ -209,3 +214,8 @@ tool/emulator_run.sh            # ✅ PID 확인 + FATAL 없음
 | HermesD | lfm2.5-thinking:1.2b ✅ | 배치 작업 |
 | HermesB | lfm2.5-230m (설치 중) | 감시 판단 |
 | TikiTaka | lfm2.5-thinking:1.2b 📱 | 학습 파트너 |
+
+
+## 라이선스
+
+MIT License — 자세한 내용은 [LICENSE](LICENSE)를 참고하세요.
