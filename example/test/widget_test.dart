@@ -84,4 +84,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('일 연속'), findsOneWidget);
   });
+
+  testWidgets('문제 버튼으로 퀴즈가 표시된다 (오프라인에서도 동작)', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    // 초기에는 퀴즈 메시지 없음
+    expect(find.textContaining('어려웠던 개념'), findsNothing);
+
+    await tester.tap(find.widgetWithText(ActionChip, '문제'));
+    await tester.pump();
+
+    // makeQuiz() 템플릿이 대화에 표시된다
+    expect(find.textContaining('어려웠던 개념'), findsOneWidget);
+  });
+
+  testWidgets('평가 버튼은 사용자 메시지가 없으면 비활성', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    final chip = tester.widget<ActionChip>(
+      find.widgetWithText(ActionChip, '평가'),
+    );
+    expect(chip.onPressed, isNull);
+
+    // 비활성 상태에서 탭해도 크래시 없음
+    await tester.tap(find.widgetWithText(ActionChip, '평가'),
+        warnIfMissed: false);
+    await tester.pump();
+  });
 }

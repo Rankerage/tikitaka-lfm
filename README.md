@@ -31,9 +31,15 @@ final feedback = await engine.gradeDirect('x = 2입니다');
 // 학습 통계 (연속 학습 streak)
 final stats = engine.stats; // totalQuestions, streakDays, bestStreak, lastActive
 
+// 조교 메시지(퀴즈 등)를 모델 호출 없이 히스토리에 기록
+engine.tutorSay(engine.makeQuiz());
+
 // 앱 종료 전 대기 중인 기록 저장 확정 (선택)
 await engine.flush();
 ```
+
+> `TikiTakaChat(showActions: true)`를 쓰면 '문제/평가' 빠른 액션 버튼이
+> 입력창 위에 표시된다 (문제: `makeQuiz`+`tutorSay`, 평가: `gradeDirect`).
 
 ## 능동적 학습
 - `proactiveGreeting()` — AI가 먼저 인사 + 학습 유도

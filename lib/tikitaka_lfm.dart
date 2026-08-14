@@ -325,6 +325,17 @@ class TikiTakaLfm {
     return templates[_quizIndex++ % templates.length];
   }
 
+  /// 학습 파트너가 먼저 건네는 메시지(퀴즈 등)를 히스토리에 추가한다.
+  ///
+  /// 모델을 호출하지 않으며, 활동 통계에도 기록되지 않는다.
+  /// 이후 [ask] 호출 시 이 메시지가 컨텍스트에 포함되어 AI가 맥락을 안다.
+  TkMessage tutorSay(String content) {
+    final message = TkMessage(role: 'assistant', content: content);
+    _append(message);
+    _scheduleSave();
+    return message;
+  }
+
   /// 정답 평가 — '평가해줘' 요청이 대화 기록에 쌓인다 (학습 기록 보존용)
   ///
   /// 기록에 남기지 않고 1회성으로 평가하려면 [gradeDirect]를 사용한다.

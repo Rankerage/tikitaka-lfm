@@ -519,6 +519,47 @@ void main() {
     });
   });
 
+  group('tutorSay (조교 메시지)', () {
+    test('히스토리에 추가되고 저장된다', () async {
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client);
+
+      final m = engine.tutorSay('오늘의 문제: 일차방정식이 뭘까?');
+
+      expect(m.role, 'assistant');
+      expect(engine.history.single.content, '오늘의 문제: 일차방정식이 뭘까?');
+
+      await engine.flush();
+      final restored = TikiTakaLfm(client: client);
+      await restored.loadHistory();
+      expect(restored.history.single.content, '오늘의 문제: 일차방정식이 뭘까?');
+      engine.dispose();
+      restored.dispose();
+    });
+
+    test('활동 통계에 영향을 주지 않는다', () async {
+      final engine = TikiTakaLfm(client: _mock((req) => _chatReply('ok')));
+      engine.tutorSay('문제');
+      engine.tutorSay('다른 문제');
+      expect(engine.stats.totalQuestions, 0);
+      expect(engine.stats.streakDays, 0);
+      engine.dispose();
+    });
+
+    test('이후 ask 컨텍스트에 포함된다', () async {
+      final log = <http.Request>[];
+      final client = _mock((req) => _chatReply('ok'), log: log);
+      final engine = TikiTakaLfm(client: client);
+      engine.tutorSay('질문: 2+2는?');
+      await engine.ask('4');
+      final body = jsonDecode(log.single.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List;
+      expect(messages.any((m) =>
+          m is Map && m['content'] == '질문: 2+2는?'), isTrue);
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));

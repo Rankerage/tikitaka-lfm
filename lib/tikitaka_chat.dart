@@ -10,11 +10,15 @@ class TikiTakaChat extends StatefulWidget {
   /// 예: 호스트 UI가 학습 통계(streak 등)를 갱신하는 용도.
   final VoidCallback? onActivity;
 
+  /// '문제/평가' 빠른 액션 버튼 표시 여부
+  final bool showActions;
+
   const TikiTakaChat({
     super.key,
     required this.engine,
     this.subject = '수학',
     this.onActivity,
+    this.showActions = true,
   });
 
   @override
@@ -128,6 +132,50 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
     }
   }
 
+  /// 사용자 메시지가 하나라도 있는지 (평가 버튼 활성 조건)
+  bool get _hasUserMessage => _messages.any((m) => m.role == 'user');
+
+  /// 오늘의 문제 — 퀴즈를 히스토리에 기록하고 화면에 표시 (모델 호출 없음)
+  void _quiz() {
+    if (_busy) return;
+    final message = widget.engine.tutorSay(widget.engine.makeQuiz());
+    setState(() => _messages.add(message));
+    _scrollToBottom();
+  }
+
+  /// 마지막 사용자 답변을 비히스토리 방식으로 평가해 피드백 표시
+  Future<void> _evaluate() async {
+    if (_busy) return;
+    TkMessage? lastUser;
+    for (final m in _messages.reversed) {
+      if (m.role == 'user') {
+        lastUser = m;
+        break;
+      }
+    }
+    if (lastUser == null) return;
+    setState(() => _busy = true);
+    try {
+      final feedback = await widget.engine.gradeDirect(lastUser.content);
+      if (!mounted) return;
+      setState(() {
+        _messages.add(TkMessage(role: 'assistant', content: feedback));
+        _busy = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(TkMessage(
+              role: 'assistant',
+              content: '⚠️ 평가 실패: ${e.toString().split('\n').first}'));
+          _busy = false;
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
   /// 메시지 추가 후 프레임 렌더링이 끝난 시점에 맨 아래로 스크롤
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -225,6 +273,26 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
             },
           ),
         ),
+        // 액션 버튼 (문제/평가)
+        if (widget.showActions)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Row(
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.quiz, size: 16),
+                  label: const Text('문제'),
+                  onPressed: _busy ? null : _quiz,
+                ),
+                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('평가'),
+                  onPressed: (_busy || !_hasUserMessage) ? null : _evaluate,
+                ),
+              ],
+            ),
+          ),
         // 입력창
         SafeArea(
           top: false,
