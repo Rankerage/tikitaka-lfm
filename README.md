@@ -97,6 +97,20 @@ example/                  # 실행 가능한 예제 앱
   lib/main.dart           # 주제 선택 + Ollama 설정 UI
 ```
 
+## GitHub 배포
+```bash
+# 저장소: https://github.com/Rankerage/tikitaka-lfm (public)
+# 웹 데모: https://rankerage.github.io/tikitaka-lfm/
+
+# 코드 push + 웹 데모 재배포
+tool/publish_github.sh            # 코드 push
+tool/publish_github.sh --web      # + 웹 데모(gh-pages) 배포
+
+# CI 워크플로 활성화 (최초 1회, workflow 스코프 필요)
+#   gh auth refresh -h github.com -s workflow   ← 기기 코드 입력
+#   git add .github/workflows/ci.yml && git commit && git push
+```
+
 ## 개발
 ```bash
 # 분석 (린트)
