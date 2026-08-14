@@ -1,0 +1,22 @@
+name: tikitaka_lfm
+description: "TikiTaka LFM2.5 엔진 - 온디바이스 AI 학습 파트너 (Liquid LFM2.5-1.2B)"
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
