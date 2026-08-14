@@ -102,6 +102,14 @@ tool/build_android.sh debug      # 또는 release
 # → build/apk/app-debug.apk
 ```
 
+### Windows 데스크톱 빌드
+플러그인 심링크가 UNC에서 실패하는 같은 이유로 `tool/build_windows.sh`를 쓴다
+(Windows 쪽에서 `flutter run -d windows`로 바로 실행 가능):
+```bash
+tool/build_windows.sh release
+# → build/windows/*.exe
+```
+
 ## ⚠️ Android 실기기 네트워크 설정 (필수)
 
 이 엔진은 로컬 Ollama 서버에 **HTTP(비보안)** 로 연결한다. Android 9(API 28) 이상에서는 기본적으로 cleartext HTTP 트래픽이 **차단**되므로, **호스트 앱**의 `AndroidManifest.xml`에 아래 설정 중 하나가 필요하다.
