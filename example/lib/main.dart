@@ -236,95 +236,22 @@ class _HomePageState extends State<HomePage> {
     _refreshStats();
   }
 
-  void _openSettings() async {
-    final hostCtrl = TextEditingController(text: _host);
-    final portCtrl = TextEditingController(text: '$_port');
-    final modelCtrl = TextEditingController(text: _model);
-    final changed = await showModalBottomSheet<bool>(
+  Future<void> _openSettings() async {
+    final result = await showModalBottomSheet<_SettingsResult>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Ollama 연결 설정',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: hostCtrl,
-              decoration: const InputDecoration(
-                labelText: '호스트',
-                hintText: '127.0.0.1 또는 10.0.2.2 (에뮬레이터)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: portCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '포트',
-                hintText: '11434',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: modelCtrl,
-              decoration: const InputDecoration(
-                labelText: '모델',
-                hintText: 'lfm2.5-thinking:1.2b',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            StatefulBuilder(
-              builder: (context, setSheetState) => SwitchListTile(
-                title: const Text('학습 알림 (매일)'),
-                subtitle: const Text('공부할 시간에 로컬 알림을 보냅니다'),
-                contentPadding: EdgeInsets.zero,
-                value: _remindersOn,
-                onChanged: (v) async {
-                  setSheetState(() {}); // 진행 표시용 즉시 리빌드
-                  await _setReminders(v);
-                  if (mounted) setSheetState(() {});
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('저장'),
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => _SettingsSheet(
+        host: _host,
+        port: _port,
+        model: _model,
+        remindersOn: _remindersOn,
+        onToggleReminders: _setReminders,
       ),
     );
 
-    if (changed != true) {
-      hostCtrl.dispose();
-      portCtrl.dispose();
-      modelCtrl.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final newHost = hostCtrl.text.trim();
-    final newPort = int.tryParse(portCtrl.text.trim());
-    final newModel = modelCtrl.text.trim();
-    hostCtrl.dispose();
-    portCtrl.dispose();
-    modelCtrl.dispose();
-
+    final newPort = result.port;
     if (newPort == null || newPort <= 0) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -333,9 +260,9 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     setState(() {
-      _host = newHost.isEmpty ? '127.0.0.1' : newHost;
+      _host = result.host.isEmpty ? '127.0.0.1' : result.host;
       _port = newPort;
-      _model = newModel.isEmpty ? 'lfm2.5-thinking:1.2b' : newModel;
+      _model = result.model.isEmpty ? 'lfm2.5-thinking:1.2b' : result.model;
       _engineEpoch++;
       _rebuildEngine();
     });
@@ -466,6 +393,126 @@ class _HomePageState extends State<HomePage> {
                 text,
                 language: _subject == '영어' ? 'en-US' : 'ko-KR',
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 설정 시트가 반환하는 값
+class _SettingsResult {
+  final String host;
+  final int? port;
+  final String model;
+  const _SettingsResult(
+      {required this.host, required this.port, required this.model});
+}
+
+/// Ollama 연결 설정 시트 — controller 수명을 위젯이 소유한다.
+class _SettingsSheet extends StatefulWidget {
+  final String host;
+  final int port;
+  final String model;
+  final bool remindersOn;
+  final Future<void> Function(bool) onToggleReminders;
+
+  const _SettingsSheet({
+    required this.host,
+    required this.port,
+    required this.model,
+    required this.remindersOn,
+    required this.onToggleReminders,
+  });
+
+  @override
+  State<_SettingsSheet> createState() => _SettingsSheetState();
+}
+
+class _SettingsSheetState extends State<_SettingsSheet> {
+  late final _hostCtrl = TextEditingController(text: widget.host);
+  late final _portCtrl = TextEditingController(text: '${widget.port}');
+  late final _modelCtrl = TextEditingController(text: widget.model);
+
+  @override
+  void dispose() {
+    _hostCtrl.dispose();
+    _portCtrl.dispose();
+    _modelCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Ollama 연결 설정',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _hostCtrl,
+            decoration: const InputDecoration(
+              labelText: '호스트',
+              hintText: '127.0.0.1 또는 10.0.2.2 (에뮬레이터)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _portCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '포트',
+              hintText: '11434',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _modelCtrl,
+            decoration: const InputDecoration(
+              labelText: '모델',
+              hintText: 'lfm2.5-thinking:1.2b',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          StatefulBuilder(
+            builder: (context, setSheetState) => SwitchListTile(
+              title: const Text('학습 알림 (매일)'),
+              subtitle: const Text('공부할 시간에 로컬 알림을 보냅니다'),
+              contentPadding: EdgeInsets.zero,
+              value: widget.remindersOn,
+              onChanged: (v) async {
+                setSheetState(() {});
+                await widget.onToggleReminders(v);
+                if (mounted) setSheetState(() {});
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(
+                context,
+                _SettingsResult(
+                  host: _hostCtrl.text.trim(),
+                  port: int.tryParse(_portCtrl.text.trim()),
+                  model: _modelCtrl.text.trim(),
+                ),
+              ),
+              child: const Text('저장'),
             ),
           ),
         ],

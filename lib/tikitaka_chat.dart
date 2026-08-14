@@ -349,9 +349,10 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
             },
           ),
         ),
-        // 액션 버튼 (문제/평가)
+        // 액션 버튼 (문제/평가) — 좁은 화면에서 가로 스크롤로 넘침 방지
         if (widget.showActions)
-          Padding(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
             child: Row(
               children: [

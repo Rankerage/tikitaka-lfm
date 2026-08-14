@@ -11,6 +11,8 @@
 - **이번 주 활동 요약** — `exportHistory()`에 주간 질문 수·활동 일수 포함
 - **음성(TTS) 학습** — `TikiTakaChat.onSpeak` 콜백 + '듣기' 버튼, 복습 카드 발음, 과목별 언어(영어→en-US)
 - **에뮬레이터 실행 검증** — AVD 'tikitaka' 구성, `tool/emulator_run.sh`로 릴리스 APK 설치·실행·크래시 검증 (Android 16/API 36, WHPX)
+- **E2E 통합 테스트** — `integration_test/app_e2e_test.dart`가 에뮬레이터에서 설정 변경→실제 Ollama 연결→AI 응답까지 검증
+- **E2E가 잡은 버그 수정** — 좁은 화면 액션 칩 가로 오버플로(스크롤 처리), 설정 시트 controller use-after-dispose(StatefulWidget 리팩터링)
 - **오답노트** — 과목별 저장, 채팅 '오답' 버튼, 통계 화면 목록·내보내기 포함
 - **오답노트 복습** — `nextMistakeReview()` 순환 플래시카드, 정답 보기·맞았어요 삭제
 - **AI 보조 기능** — `summarize()`·`learningPlan()` (실제 모델 통합 검증)
