@@ -253,6 +253,30 @@ class _HomePageState extends State<HomePage> {
         title: const Text('🎯 TikiTaka'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: '앱 정보',
+            onPressed: () => showAboutDialog(
+              context: context,
+              applicationName: 'TikiTaka',
+              applicationVersion: '1.1.0',
+              applicationIcon: const Icon(Icons.sports_soccer,
+                  size: 48, color: Colors.teal),
+              children: [
+                const Text(
+                  '온디바이스 AI 학습 파트너 (LFM2.5 + Ollama)\n'
+                  '모든 대화가 기기 안에서 처리됩니다.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '엔진: tikitaka_lfm v1.1.0\n'
+                  '기본 모델: lfm2.5-thinking:1.2b',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.bar_chart),
             tooltip: '학습 통계',
             onPressed: () => Navigator.push(

@@ -181,4 +181,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('학습 계획 생성 실패'), findsOneWidget);
   });
+
+  testWidgets('앱 정보 다이얼로그가 버전을 표시한다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('TikiTaka'), findsWidgets);
+    expect(find.textContaining('1.1.0'), findsWidgets);
+    expect(find.textContaining('lfm2.5-thinking'), findsOneWidget);
+  });
 }

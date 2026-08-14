@@ -23,6 +23,8 @@
 - **요약 UI** — 통계 화면에서 `summarize()` 호출, 결과 대화상자 표시 (통합 테스트에서 실제 모델 검증)
 - **맞춤 학습 계획** — `learningPlan(minutes)` 최근 대화·통계 기반 계획 생성, 채팅 '계획' 버튼 (실제 모델 통합 검증)
 - **앱 브랜딩** — 티키타카 런처 아이콘(패싱볼 모티프)·적응형 아이콘·네이티브 스플래시 (flutter_launcher_icons / flutter_native_splash)
+- **앱 정보 다이얼로그** — 버전·엔진·모델 정보 표시
+- **릴리스 정리** — 버전 1.1.0 (versionCode 2), Android/Web/Windows 전체 재검증
 
 ### Changed
 - `ask()`를 `askStream().join()`으로 재구성 (코드 경로 통일)
