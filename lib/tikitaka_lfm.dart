@@ -188,6 +188,8 @@ class TikiTakaLfm {
     _studySubject = subject;
     _history.clear();
     _mistakes.clear();
+    _dailyActivity.clear();
+    _reviewIndex = 0;
     _totalQuestions = 0;
     _streakDays = 0;
     _bestStreak = 0;
@@ -252,10 +254,17 @@ class TikiTakaLfm {
   }
 
   /// 성공한 대화 1회를 학습 활동으로 기록한다 (연속 학습 streak 갱신)
+  /// 일별 활동 카운트 (날짜 'yyyy-MM-dd' → 질문 수, 최근 30일만 유지)
+  static const int _maxDailyHistoryDays = 30;
+  final Map<String, int> _dailyActivity = {};
+
   void _recordActivity() {
     final today = _dateOnly(_now());
     final last = _lastActiveDate;
     _totalQuestions++;
+    final dayKey = _formatDate(today);
+    _dailyActivity[dayKey] = (_dailyActivity[dayKey] ?? 0) + 1;
+    _pruneDailyActivity();
     if (last == null) {
       _streakDays = 1;
     } else {
@@ -273,7 +282,29 @@ class TikiTakaLfm {
     _lastActiveDate = today;
   }
 
+  /// 30일보다 오래된 일별 기록 제거
+  void _pruneDailyActivity() {
+    if (_dailyActivity.length <= _maxDailyHistoryDays) return;
+    final keys = _dailyActivity.keys.toList()..sort();
+    while (_dailyActivity.length > _maxDailyHistoryDays && keys.isNotEmpty) {
+      _dailyActivity.remove(keys.removeAt(0));
+    }
+  }
+
   static DateTime _dateOnly(DateTime t) => DateTime(t.year, t.month, t.day);
+
+  /// 최근 7일(오늘 포함)의 일별 질문 수 — 활동 없는 날은 0.
+  /// 키는 'yyyy-MM-dd' 형식이며 오늘부터 과거 순으로 정렬된다.
+  Map<String, int> get weeklyActivity {
+    final today = _dateOnly(_now());
+    final result = <String, int>{};
+    for (var i = 6; i >= 0; i--) {
+      final day = today.subtract(Duration(days: i));
+      final key = _formatDate(day);
+      result[key] = _dailyActivity[key] ?? 0;
+    }
+    return result;
+  }
 
   /// 학습 활동 통계 (연속 학습 일수 등)
   TkStats get stats => TkStats(
@@ -658,6 +689,7 @@ class TikiTakaLfm {
         subject: _studySubject,
         history: List<TkMessage>.of(_history),
         mistakes: List<TkMistake>.of(_mistakes),
+        dailyActivity: Map<String, int>.of(_dailyActivity),
         totalQuestions: _totalQuestions,
         streakDays: _streakDays,
         bestStreak: _bestStreak,
@@ -672,8 +704,10 @@ class TikiTakaLfm {
         jsonEncode(snap.history.map((m) => m.toJson()).toList());
     final mistakesJson =
         jsonEncode(snap.mistakes.map((m) => m.toJson()).toList());
+    final dailyJson = jsonEncode(snap.dailyActivity);
     await prefs.setString('tikitaka_history$suffix', json);
     await prefs.setString('tikitaka_mistakes$suffix', mistakesJson);
+    await prefs.setString('tikitaka_daily$suffix', dailyJson);
     await prefs.setInt('tikitaka_total_questions$suffix', snap.totalQuestions);
     await prefs.setInt('tikitaka_streak_days$suffix', snap.streakDays);
     await prefs.setInt('tikitaka_best_streak$suffix', snap.bestStreak);
@@ -713,6 +747,23 @@ class TikiTakaLfm {
       }
     }
 
+    // 일별 활동 복원
+    final dailyRaw = prefs.getString('tikitaka_daily$_suffix');
+    _dailyActivity.clear();
+    if (dailyRaw != null) {
+      try {
+        final decoded = jsonDecode(dailyRaw);
+        if (decoded is Map<String, dynamic>) {
+          _dailyActivity.addAll(decoded.map(
+              (k, v) => MapEntry(k, v is int ? v : int.tryParse('$v') ?? 0)));
+          _pruneDailyActivity();
+        }
+      } catch (_) {
+        _dailyActivity.clear();
+        await prefs.remove('tikitaka_daily$_suffix');
+      }
+    }
+
     final raw = prefs.getString('tikitaka_history$_suffix');
     if (raw == null) return;
     try {
@@ -744,6 +795,7 @@ class TikiTakaLfm {
     _pending = null;
     _history.clear();
     _mistakes.clear();
+    _dailyActivity.clear();
     _reviewIndex = 0;
     _quizIndex = 0;
     _totalQuestions = 0;
@@ -752,6 +804,7 @@ class TikiTakaLfm {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tikitaka_history$_suffix');
     await prefs.remove('tikitaka_mistakes$_suffix');
+    await prefs.remove('tikitaka_daily$_suffix');
     await prefs.remove('tikitaka_total_questions$_suffix');
     await prefs.remove('tikitaka_streak_days$_suffix');
     await prefs.remove('tikitaka_last_active$_suffix');
@@ -774,6 +827,7 @@ class _Snapshot {
   final String subject;
   final List<TkMessage> history;
   final List<TkMistake> mistakes;
+  final Map<String, int> dailyActivity;
   final int totalQuestions;
   final int streakDays;
   final int bestStreak;
@@ -783,6 +837,7 @@ class _Snapshot {
     required this.subject,
     required this.history,
     required this.mistakes,
+    required this.dailyActivity,
     required this.totalQuestions,
     required this.streakDays,
     required this.bestStreak,

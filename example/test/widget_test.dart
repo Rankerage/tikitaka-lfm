@@ -233,6 +233,18 @@ void main() {
     expect(find.text('학습 통계'), findsOneWidget);
   });
 
+  testWidgets('통계 화면에 최근 7일 활동 그래프가 보인다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.bar_chart));
+    await tester.pumpAndSettle();
+
+    expect(find.text('최근 7일 활동'), findsOneWidget);
+    // 활동이 없으면 7일 모두 0으로 표시
+    expect(find.text('0'), findsNWidgets(7));
+  });
+
   testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
     await tester.pumpWidget(const TikiTakaApp());
     await tester.pump();

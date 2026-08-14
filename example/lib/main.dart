@@ -725,6 +725,13 @@ class _StatsPageState extends State<StatsPage> {
 
   static String _label(String subject) => subject.isEmpty ? '기본' : subject;
 
+  static String _dayLabel(String dateKey) {
+    final d = DateTime.tryParse(dateKey);
+    if (d == null) return dateKey;
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    return weekdays[d.weekday - 1];
+  }
+
   @override
   Widget build(BuildContext context) {
     final all = _all;
@@ -764,6 +771,60 @@ class _StatsPageState extends State<StatsPage> {
                     leading: const Icon(Icons.insights),
                     title: Text('전체 질문 ${_totalQuestions ?? 0}개'),
                     subtitle: Text('${all.length}개 과목'),
+                  ),
+                ),
+                // 최근 7일 활동 그래프
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('최근 7일 활동',
+                            style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            for (final e
+                                in widget.engine.weeklyActivity.entries) ...[
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('${e.value}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      height: (8 + (e.value * 16).clamp(0, 96))
+                                          .toDouble(),
+                                      decoration: BoxDecoration(
+                                        color: e.value > 0
+                                            ? Colors.teal
+                                            : Colors.teal.shade100,
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                                top: Radius.circular(4)),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(_dayLabel(e.key),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                  ],
+                                ),
+                              ),
+                              if (e.key !=
+                                  widget.engine.weeklyActivity.keys.last)
+                                const SizedBox(width: 6),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 for (final e in (all.entries.toList()

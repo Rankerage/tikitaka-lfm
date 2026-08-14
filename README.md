@@ -31,6 +31,9 @@ final feedback = await engine.gradeDirect('x = 2입니다');
 // 학습 통계 (연속 학습 streak)
 final stats = engine.stats; // totalQuestions, streakDays, bestStreak, lastActive
 
+// 최근 7일 일별 활동 (오늘 포함, 활동 없는 날은 0)
+final weekly = engine.weeklyActivity; // {'yyyy-MM-dd': 질문 수, ...}
+
 // 모든 과목의 통계 (과목 → TkStats)
 final all = await engine.allStats();
 

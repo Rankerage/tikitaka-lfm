@@ -883,6 +883,63 @@ void main() {
     });
   });
 
+  group('일별 활동 (weekly activity)', () {
+    test('활동한 날에 질문 수가 누적된다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1');
+      await engine.ask('2');
+      await engine.ask('3');
+
+      final weekly = engine.weeklyActivity;
+      expect(weekly['2026-08-14'], 3);
+      // 7일 중 나머지는 0
+      expect(weekly, hasLength(7));
+      expect(weekly.values.where((v) => v > 0).length, 1);
+      engine.dispose();
+    });
+
+    test('날짜가 바뀌면 새 항목이 생기고 주간 집계에 반영된다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1일차');
+      now = DateTime(2026, 8, 16, 9, 0);
+      await engine.ask('3일차');
+
+      final weekly = engine.weeklyActivity;
+      expect(weekly['2026-08-14'], 1);
+      expect(weekly['2026-08-15'], 0);
+      expect(weekly['2026-08-16'], 1);
+      engine.dispose();
+    });
+
+    test('영속화: flush 후 새 엔진에서 복원된다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final client = _mock((req) => _chatReply('ok'));
+      final engine = TikiTakaLfm(client: client, clock: () => now);
+      await engine.ask('1');
+      await engine.flush();
+
+      final restored = TikiTakaLfm(client: client, clock: () => now);
+      await restored.loadHistory();
+      expect(restored.weeklyActivity['2026-08-14'], 1);
+      engine.dispose();
+      restored.dispose();
+    });
+
+    test('reset은 일별 활동을 초기화한다', () async {
+      var now = DateTime(2026, 8, 14, 10, 0);
+      final engine = TikiTakaLfm(
+          client: _mock((req) => _chatReply('ok')), clock: () => now);
+      await engine.ask('1');
+      await engine.reset();
+      expect(engine.weeklyActivity.values.every((v) => v == 0), isTrue);
+      engine.dispose();
+    });
+  });
+
   group('프로액티브 학습 타이머', () {
     test('onTick 콜백이 주기적으로 호출되고 stop 시 중단', () async {
       final client = _mock((req) => _chatReply('ok'));

@@ -6,6 +6,7 @@
 
 ### Added
 - **학습 알림** — flutter_local_notifications 매일 반복 로컬 알림, 설정 스위치 (core library desugaring + POST_NOTIFICATIONS)
+- **일별 활동 추적** — `weeklyActivity()` 최근 7일 질문 수, 통계 화면 막대 그래프 (30일 보관)
 - **오답노트** — 과목별 저장, 채팅 '오답' 버튼, 통계 화면 목록·내보내기 포함
 - **오답노트 복습** — `nextMistakeReview()` 순환 플래시카드, 정답 보기·맞았어요 삭제
 - **AI 보조 기능** — `summarize()`·`learningPlan()` (실제 모델 통합 검증)
