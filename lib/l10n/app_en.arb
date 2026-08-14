@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "connectedStatus": "LFM2.5 connected",
+  "offlineStatus": "Offline — Ollama required",
+  "recheckTooltip": "Recheck connection",
+  "connectedSnackbar": "LFM2.5 connected",
+  "inputHint": "Type your answer...",
+  "quizAction": "Quiz",
+  "gradeAction": "Grade",
+  "planAction": "Plan",
+  "mistakeAction": "Mistake",
+  "listenAction": "Listen",
+  "connectionFailed": "⚠️ LFM2.5 connection failed. Check Ollama: ",
+  "evaluationFailed": "⚠️ Evaluation failed: ",
+  "planFailed": "⚠️ Plan generation failed: ",
+  "mistakeSaved": "Saved to mistake book",
+  "planDialogTitle": "Study plan",
+  "close": "Close"
+}

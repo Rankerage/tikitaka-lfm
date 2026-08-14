@@ -11,6 +11,7 @@
 - **음성(TTS) 학습** — 채팅 '듣기' 버튼·복습 카드 발음(질문·답), 과목별 언어
 - **에뮬레이터 E2E** — `integration_test/app_e2e_test.dart` 설정→연결→대화 검증
 - **스토어 리스팅 준비** — `flutter drive`로 실기기 화면 5종 스크린샷, `docs/store_listing.md` (한/영 설명)
+- **다국어 UI (i18n)** — 라이브러리 l10n(한/영 ARB), 시스템 로케일 자동 적용, delegate 없는 호스트는 한국어 폴백, `TikiTakaApp(locale:)` 테스트 지원
 
 ### Fixed
 - 좁은 화면 액션 칩 가로 오버플로 (가로 스크롤)

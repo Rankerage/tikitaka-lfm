@@ -1,0 +1,19 @@
+{
+  "@@locale": "ko",
+  "connectedStatus": "LFM2.5 온디바이스 연결됨",
+  "offlineStatus": "오프라인 — Ollama 필요",
+  "recheckTooltip": "연결 다시 확인",
+  "connectedSnackbar": "LFM2.5 연결 확인됨",
+  "inputHint": "대답을 입력하세요...",
+  "quizAction": "문제",
+  "gradeAction": "평가",
+  "planAction": "계획",
+  "mistakeAction": "오답",
+  "listenAction": "듣기",
+  "connectionFailed": "⚠️ LFM2.5 연결 실패. Ollama 실행 확인: ",
+  "evaluationFailed": "⚠️ 평가 실패: ",
+  "planFailed": "⚠️ 학습 계획 생성 실패: ",
+  "mistakeSaved": "오답노트에 저장했습니다",
+  "planDialogTitle": "맞춤 학습 계획",
+  "close": "닫기"
+}

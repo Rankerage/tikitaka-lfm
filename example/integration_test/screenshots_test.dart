@@ -6,7 +6,7 @@ import 'package:tikitaka_example/main.dart';
 /// 앱 스토어 리스팅용 스크린샷 캡처.
 ///
 /// 실행(드라이버 경유): flutter drive --driver=test_driver/integration_test.dart
-///   --target=integration_test/screenshots_test.dart -d <device>
+///   --target=integration_test/screenshots_test.dart -d `device`
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 

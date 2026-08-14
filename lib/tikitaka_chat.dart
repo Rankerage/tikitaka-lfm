@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tikitaka_lfm/tikitaka_lfm.dart';
+import 'l10n/gen/app_localizations.dart';
 
 /// 티키타카 채팅 위젯 — LFM2.5 파트너와 대화 UI
 class TikiTakaChat extends StatefulWidget {
@@ -37,6 +38,10 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
   bool _busy = false;
   bool _online = false;
   bool _checking = false;
+
+  /// 현지화 — 호스트가 delegate를 등록하지 않았으면 null → 한국어 폴백
+  AppLocalizations? get _l10n =>
+      Localizations.of<AppLocalizations>(context, AppLocalizations);
 
   @override
   void initState() {
@@ -88,9 +93,9 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
       });
       if (online) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('LFM2.5 연결 확인됨'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(_l10n?.connectedSnackbar ?? 'LFM2.5 연결 확인됨'),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -129,7 +134,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
           _messages.removeLast();
           _messages.add(TkMessage(
               role: 'assistant',
-              content: '⚠️ LFM2.5 연결 실패. Ollama 실행 확인: ${e.toString().split('\n').first}'));
+              content: '${_l10n?.connectionFailed ?? '⚠️ LFM2.5 연결 실패. Ollama 실행 확인: '}${e.toString().split('\n').first}'));
           _busy = false;
         });
         _scrollToBottom();
@@ -169,14 +174,14 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('맞춤 학습 계획'),
+          title: Text(_l10n?.planDialogTitle ?? '맞춤 학습 계획'),
           content: SingleChildScrollView(
             child: SelectableText(plan),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('닫기'),
+              child: Text(_l10n?.close ?? '닫기'),
             ),
           ],
         ),
@@ -187,7 +192,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
           _busy = false;
           _messages.add(TkMessage(
               role: 'assistant',
-              content: '⚠️ 학습 계획 생성 실패: ${e.toString().split('\n').first}'));
+              content: '${_l10n?.planFailed ?? '⚠️ 학습 계획 생성 실패: '}${e.toString().split('\n').first}'));
         });
         _scrollToBottom();
       }
@@ -212,9 +217,9 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
     if (lastUser == null || lastAssistant == null) return;
     widget.engine.addMistake(lastUser.content, lastAssistant.content);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('오답노트에 저장했습니다'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(_l10n?.mistakeSaved ?? '오답노트에 저장했습니다'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -244,7 +249,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
         setState(() {
           _messages.add(TkMessage(
               role: 'assistant',
-              content: '⚠️ 평가 실패: ${e.toString().split('\n').first}'));
+              content: '${_l10n?.evaluationFailed ?? '⚠️ 평가 실패: '}${e.toString().split('\n').first}'));
           _busy = false;
         });
         _scrollToBottom();
@@ -278,7 +283,9 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
                   size: 16, color: _online ? Colors.green : Colors.orange),
               const SizedBox(width: 8),
               Text(
-                _online ? 'LFM2.5 온디바이스 연결됨' : '오프라인 — Ollama 필요',
+                _online
+                    ? (_l10n?.connectedStatus ?? 'LFM2.5 온디바이스 연결됨')
+                    : (_l10n?.offlineStatus ?? '오프라인 — Ollama 필요'),
                 style: TextStyle(fontSize: 12, color: _online ? Colors.green.shade700 : Colors.orange.shade800),
               ),
               const Spacer(),
@@ -296,7 +303,7 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
               else
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 18),
-                  tooltip: '연결 다시 확인',
+                  tooltip: _l10n?.recheckTooltip ?? '연결 다시 확인',
                   visualDensity: VisualDensity.compact,
                   onPressed: _recheck,
                 ),
@@ -358,32 +365,32 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
               children: [
                 ActionChip(
                   avatar: const Icon(Icons.quiz, size: 16),
-                  label: const Text('문제'),
+                  label: Text(_l10n?.quizAction ?? '문제'),
                   onPressed: _busy ? null : _quiz,
                 ),
                 const SizedBox(width: 8),
                 ActionChip(
                   avatar: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('평가'),
+                  label: Text(_l10n?.gradeAction ?? '평가'),
                   onPressed: (_busy || !_hasUserMessage) ? null : _evaluate,
                 ),
                 const SizedBox(width: 8),
                 ActionChip(
                   avatar: const Icon(Icons.event_note, size: 16),
-                  label: const Text('계획'),
+                  label: Text(_l10n?.planAction ?? '계획'),
                   onPressed: _busy ? null : _plan,
                 ),
                 const SizedBox(width: 8),
                 ActionChip(
                   avatar: const Icon(Icons.bookmark_add, size: 16),
-                  label: const Text('오답'),
+                  label: Text(_l10n?.mistakeAction ?? '오답'),
                   onPressed: (_busy || !_hasUserMessage) ? null : _saveMistake,
                 ),
                 if (widget.onSpeak != null) ...[
                   const SizedBox(width: 8),
                   ActionChip(
                     avatar: const Icon(Icons.volume_up, size: 16),
-                    label: const Text('듣기'),
+                    label: Text(_l10n?.listenAction ?? '듣기'),
                     onPressed: (_busy || _lastAssistantContent.isEmpty)
                         ? null
                         : () => widget.onSpeak!(_lastAssistantContent),
@@ -407,10 +414,10 @@ class _TikiTakaChatState extends State<TikiTakaChat> {
                   child: TextField(
                     controller: _controller,
                     onSubmitted: _send,
-                    decoration: const InputDecoration(
-                      hintText: '대답을 입력하세요...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: InputDecoration(
+                      hintText: _l10n?.inputHint ?? '대답을 입력하세요...',
+                      border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                   ),
                 ),

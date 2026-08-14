@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tikitaka_lfm/l10n/gen/app_localizations.dart';
 import 'package:tikitaka_lfm/tikitaka_chat.dart';
 import 'package:tikitaka_lfm/tikitaka_lfm.dart';
 
@@ -73,7 +74,10 @@ void main() {
 }
 
 class TikiTakaApp extends StatelessWidget {
-  const TikiTakaApp({super.key});
+  /// 테스트/특정 로케일 고정용 (null이면 시스템 로케일 사용)
+  final Locale? locale;
+
+  const TikiTakaApp({super.key, this.locale});
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +88,9 @@ class TikiTakaApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
       home: const HomePage(),
     );
   }

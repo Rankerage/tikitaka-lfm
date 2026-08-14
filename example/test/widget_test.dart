@@ -8,10 +8,11 @@ import 'package:tikitaka_example/main.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    // 채팅 위젯 현지화 문자열(한국어 어서션) 유지를 위해 한국어 로케일로 고정
   });
 
   testWidgets('앱이 실행되면 주제 칩과 채팅 UI가 보인다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     // 앱바 타이틀
@@ -24,7 +25,7 @@ void main() {
   });
 
   testWidgets('설정 시트를 열면 Ollama 설정 필드가 보인다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.settings));
@@ -36,8 +37,9 @@ void main() {
   });
 
   testWidgets('채팅 상태바에 연결 다시 확인 버튼이 있다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
+    // probe: 실제 상태 텍스트 출력
 
     expect(find.byIcon(Icons.refresh), findsOneWidget);
 
@@ -48,7 +50,7 @@ void main() {
   });
 
   testWidgets('학습 통계 표시줄이 보인다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     expect(find.textContaining('일 연속'), findsOneWidget);
@@ -57,7 +59,7 @@ void main() {
   });
 
   testWidgets('직접 입력으로 새 주제를 추가할 수 있다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.text('직접 입력'));
@@ -73,7 +75,7 @@ void main() {
   });
 
   testWidgets('리셋 버튼은 확인 대화상자를 거친다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.delete_sweep));
@@ -87,7 +89,7 @@ void main() {
   });
 
   testWidgets('문제 버튼으로 퀴즈가 표시된다 (오프라인에서도 동작)', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     // 초기에는 퀴즈 메시지 없음
@@ -101,7 +103,7 @@ void main() {
   });
 
   testWidgets('평가 버튼은 사용자 메시지가 없으면 비활성', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     final chip = tester.widget<ActionChip>(
@@ -116,7 +118,7 @@ void main() {
   });
 
   testWidgets('통계 화면에 과목별 streak이 표시된다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -126,8 +128,8 @@ void main() {
     expect(find.textContaining('일 연속'), findsWidgets);
     // 현재 과목(수학) 행
     expect(find.text('수학'), findsOneWidget);
-    // 뒤로가기로 홈 복귀
-    await tester.pageBack();
+    // 뒤로가기로 홈 복귀 (ko 로케일에서는 'Back' 툴팁이 없어 BackButton을 직접 탭)
+    await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.text('🎯 TikiTaka'), findsOneWidget);
   });
@@ -142,7 +144,7 @@ void main() {
       },
     );
 
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -159,7 +161,7 @@ void main() {
   });
 
   testWidgets('통계 화면에서 AI 요약을 시도하면 빈 기록 안내가 나온다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -173,7 +175,7 @@ void main() {
   });
 
   testWidgets('계획 버튼은 오프라인에서 오류를 안전하게 처리한다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     // 테스트 환경 HTTP는 항상 400 → 학습 계획 생성 실패 버블
@@ -183,7 +185,7 @@ void main() {
   });
 
   testWidgets('앱 정보 다이얼로그가 버전을 표시한다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.info_outline));
@@ -195,7 +197,7 @@ void main() {
   });
 
   testWidgets('오답 버튼은 사용자 메시지가 없으면 비활성', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     final chip = tester.widget<ActionChip>(
@@ -205,7 +207,7 @@ void main() {
   });
 
   testWidgets('통계 화면에 오답노트 빈 상태가 보인다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -216,7 +218,7 @@ void main() {
   });
 
   testWidgets('복습 모드는 오답노트가 비어 있으면 안내 후 닫힌다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -234,7 +236,7 @@ void main() {
   });
 
   testWidgets('통계 화면에 최근 7일 활동 그래프가 보인다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -246,7 +248,7 @@ void main() {
   });
 
   testWidgets('과목 데이터 삭제는 확인 대화상자를 거친다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.bar_chart));
@@ -264,7 +266,7 @@ void main() {
   });
 
   testWidgets('듣기 버튼으로 TTS를 호출해도 크래시 없다', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     // 초기 인사말(assistant)이 있어 듣기 버튼이 활성화된다
@@ -279,8 +281,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('영어 로케일이면 채팅 문자열이 영어로 표시된다', (tester) async {
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('en')));
+    await tester.pump();
+
+    expect(find.textContaining('Offline'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, 'Quiz'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, 'Listen'), findsOneWidget);
+  });
+
   testWidgets('설정에 학습 알림 스위치가 있다 (토글해도 크래시 없음)', (tester) async {
-    await tester.pumpWidget(const TikiTakaApp());
+    await tester.pumpWidget(const TikiTakaApp(locale: Locale('ko')));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.settings));
